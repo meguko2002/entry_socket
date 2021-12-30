@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人狼</title>
+
+</head>
+
+<body>
+    <div id="app">
+
+        <form action="">
+            <label for="user">ユーザー名</label>
+            <input autocomplete="off" v-model="userID.username" id="user" placeholder="ユーザー名" />
+            <label for="room">部屋名</label>
+            <input autocomplete="off" v-model="userID.room" id="room" />
+            <button v-on:click.prevent="submitUser">入室</button>
+            <br>
+            <button v-on:click.prevent="exitUser">退出</button>
+        </form>
+        <ul id="messages">
+            <li v-for="message in messages">[[ message ]]</li>
+        </ul>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
+        integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
+        crossorigin="anonymous"></script>
+    <script>
+        const socket = io('http://192.168.2.29:5000');
+        Vue.options.delimiters = ['[[', ']]'];
+        const app = new Vue({
+            el: '#app',
+            data: {
+                userID: {
+                    username: '',
+                    room: ''
+                },
+                messages: [],
+            },
+            methods: {
+                submitUser() {
+                    socket.emit('join', this.userID);
+                },
+                exitUser() {
+                    socket.emit('leave', this.userID);
+                },
+            },
+            mounted() {
+                socket.on('server_message', (msg) => {
+                    this.messages.push(msg);
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
