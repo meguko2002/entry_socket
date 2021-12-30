@@ -6,22 +6,34 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>人狼</title>
-
 </head>
+<style>
+    .active {
+        color: #fff;
+        background-color: red;
+    }
+</style>
 
 <body>
     <div id="app">
+        <table class="table table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>プレイヤー</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="player in players">
+                    <td>[[ player.id ]]</td>
+                    <td>[[ player.name ]]</td>
+                    <td><button v-bind:class={active:player.isActive} v-on:click.prevent="entry(player)">入室</button></td>
+                </tr>
+            </tbody>
+        </table>
 
-        <form action="">
-            <label for="user">ユーザー名</label>
-            <input autocomplete="off" v-model="userID.username" id="user" placeholder="ユーザー名" />
-            <label for="room">部屋名</label>
-            <input autocomplete="off" v-model="userID.room" id="room" />
-            <button v-on:click.prevent="submitUser">入室</button>
-            <br>
-            <button v-on:click.prevent="exitUser">退出</button>
-        </form>
-        <ul id="messages">
+        <ul>
             <li v-for="message in messages">[[ message ]]</li>
         </ul>
     </div>
@@ -30,16 +42,14 @@
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
         integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
         crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
         const socket = io('http://192.168.2.29:5000');
         Vue.options.delimiters = ['[[', ']]'];
         const app = new Vue({
             el: '#app',
             data: {
-                userID: {
-                    username: '',
-                    room: ''
-                },
+                players: [],
                 messages: [],
             },
             methods: {
@@ -49,13 +59,22 @@
                 exitUser() {
                     socket.emit('leave', this.userID);
                 },
+                entry(player) {
+                    player.isActive = !player.isActive
+                },
             },
-            mounted() {
+            mounted: function () {
+                axios.get('/player_list')
+                    .then(response => {
+                        this.players=response.data[0]
+                        console.log(response.data)
+                    })
+                    .catch(error => console.log(error))
                 socket.on('server_message', (msg) => {
                     this.messages.push(msg);
-                });
-            }
-        });
+                })
+            },
+        })
     </script>
 </body>
 
