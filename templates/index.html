@@ -61,17 +61,18 @@
                 },
                 entry(player) {
                     player.isActive = !player.isActive
+                    socket.emit('join', this.players);
                 },
             },
             mounted: function () {
                 axios.get('/player_list')
                     .then(response => {
-                        this.players=response.data[0]
-                        console.log(response.data)
+                        this.players=response.data
+                        console.log(this.players)
                     })
                     .catch(error => console.log(error))
-                socket.on('server_message', (msg) => {
-                    this.messages.push(msg);
+                socket.on('entry room', (players) => {
+                    this.players = players;
                 })
             },
         })

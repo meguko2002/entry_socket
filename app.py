@@ -6,12 +6,10 @@ app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
-players = [
-              {"id": 0, "name": 'AAA', 'cast': '', "isActive":False},
-              {"id": 1, "name": 'BBB', 'cast': '', "isActive":False},
-              {"id": 2, "name": 'CCC', 'cast': '', "isActive":False},
-              {"id": 3, "name": 'DDD', 'cast': '', "isActive": False},
-          ],
+players = [{"id": 0, "name": 'AAA', 'cast': '', "isActive": False},
+           {"id": 1, "name": 'BBB', 'cast': '', "isActive": False},
+           {"id": 2, "name": 'CCC', 'cast': '', "isActive": False},
+           {"id": 3, "name": 'DDD', 'cast': '', "isActive": False}]
 
 
 @app.route('/')
@@ -32,11 +30,19 @@ def handle_message(data):
 
 
 @socketio.on('join')
-def on_join(data):
-    username = data['username']
-    room = data['room']
-    join_room(room)
-    emit('server_message', username + ' さんは ' + room + ' に入室しました', to=room)
+def on_join(json):
+    global players
+    players = json
+    print(str(players))
+    emit('entry room', players, broadcast=True)
+
+
+# @socketio.on('join')
+# def on_join(data):
+#     username = data['username']
+#     room = data['room']
+#     join_room(room)
+#     emit('server_message', username + ' さんは ' + room + ' に入室しました', to=room)
 
 
 @socketio.on('leave')
