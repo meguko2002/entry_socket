@@ -16,26 +16,41 @@
 
 <body>
     <div id="app">
+        <h1>[[ phase ]]</h1>
         <table class="table table-bordered">
             <thead class="thead-dark">
                 <tr>
                     <th>ID</th>
-                    <th>プレイヤー</th>
-                    <th></th>
+                    <th>名前</th>
+                    <th>アクション</th>
+                    <th>役職</th>
+
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="player in players">
-                    <td>[[ player.id ]]</td>
+                <tr v-for="(player, index) in players">
+                    <td>[[ index ]]</td>
                     <td>[[ player.name ]]</td>
-                    <td><button v-bind:class={active:player.isActive} v-on:click.prevent="entry(player)">入室</button></td>
+                    <td>
+                        <button v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
+                            :disabled="isBtnDisable(player)">
+                            [[ btnName ]]</button>
+
+                    </td>
+                    <td v-show="isMyIndex(player)">[[ player.cast ]]</td>
                 </tr>
             </tbody>
         </table>
-
-        <ul>
-            <li v-for="message in messages">[[ message ]]</li>
-        </ul>
+        <button v-show='myIndex!==""' v-on:click="candidateGM">GM?</button>
+        <p>[[personaldata]]</p>
+        <p>[[broadcastdata]]</p>
+        <!-- <template v-if="myData.isGM">
+            <h2>GM用</h2>
+            <button v-on:click="casting" :disabled="isReady">[[ GMbtnName ]]</button>
+        </template> -->
+        <!-- <ul>
+            <li v-for="data in datas">[[ data ]]</li>
+        </ul> -->
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -50,31 +65,93 @@
             el: '#app',
             data: {
                 players: [],
-                messages: [],
+                personaldata: "",
+                broadcastdata: "",
+                myIndex: "-1",
+                mySid: "",
+                btnName: "入室",
+                privateData: "",
+                phase: "待ち合わせ室",
+                GMbtnName: "配役",
+                onGame: false,
+            },
+            computed: {
+                // myData: function () {
+                //     if (this.myIndex !== "-1") {
+                //         return this.players[this.myIndex]
+                //     }
+                //     return ""
+                // },
+                isReady: function () {
+                    for (player of this.players) {
+                        if (player.isActive == false) { return true }
+                    }
+                    return false
+                },
             },
             methods: {
-                submitUser() {
-                    socket.emit('join', this.userID);
+                submitUser(index) {
+                    if (this.players[index].isActive) {
+                        this.players[index].isActive = false
+                        this.myIndex = "-1"
+                    }
+                    else {
+                        this.players[index].isActive = true
+                        this.myIndex = index
+                    }
+                    socket.emit('join', index, this.players[index].isActive)
                 },
-                exitUser() {
-                    socket.emit('leave', this.userID);
+                candidateGM() {
+                    socket.emit('candidateGM', this.myIndex)
                 },
-                entry(player) {
-                    player.isActive = !player.isActive
-                    socket.emit('join', this.players);
+                isMyIndex: function (player) {
+                    return this.myIndex == player.index
+                },
+                isBtnDisable: function (player) {
+                    if (this.myIndex == "-1") {
+                        if (player.isActive) {
+                            return true
+                        }
+                        return false
+                    }
+                    else {
+                        if (player.index == this.myIndex) {
+                            return false
+                        }
+                        return true
+                    }
+                },
+                // GM用メソッド  
+                go_next() {
+                    if (!this.onGame) {
+                        this.onGame = true
+                        this.casting()
+                    }
+                },
+                casting() {
+                    socket.emit('casting')
+                    this.phase = "配役完了"
                 },
             },
             mounted: function () {
                 axios.get('/player_list')
                     .then(response => {
-                        this.players=response.data
-                        console.log(this.players)
+                        this.players = response.data
                     })
                     .catch(error => console.log(error))
-                socket.on('entry room', (players) => {
-                    this.players = players;
+                socket.on('personal_message', (data) => {
+                    this.personaldata = data.msg
+                    this.mySid = data.data
                 })
-            },
+                // socket.on('login', (data) => {
+                //     if(data.player !==''){
+                //         this.myIndex = data.player.index 
+                //     }
+                // })
+                socket.on('broadcast_message', (data) => {
+                    this.players = data.players
+                })
+            }
         })
     </script>
 </body>
