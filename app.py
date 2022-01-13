@@ -6,11 +6,6 @@ app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
-players = [{'index': 0, 'name': '恵', "isActive": False, "sid": '', "isAlive": True, "isGM": False},
-           {'index': 1, 'name': 'Koji', "isActive": False, "sid": '', "isAlive": True, "isGM": False},
-           {'index': 2, 'name': '裕一', "isActive": False, "sid": '', "isAlive": True, "isGM": False}
-           ]
-
 
 class Cast:
     pass
@@ -44,17 +39,32 @@ casts = [villager, wolf, fortuneTeller]
 
 
 class Village:
-    def __init__(self, players):
-        self.players = players
-        self.num = len(players)
+    def __init__(self):
+        self.players = []
+        self.namelist = []
+        self.casts = []
+
+    def set_players(self,namelist):
+        self.namelist = [player['name'] for player in self.players]
+        for name in namelist:
+            if name not in self.namelist:
+                self.players.append({'name': name, "isActive": False, "sid": '', "isAlive": True, "isGM": False})
+        for player in self.players:
+            if player['name'] not in namelist:
+                self.players.remove(player)
 
     # キャスト決め
-    def select_cast(self, casts):
-        pass
+    def select_cast(self, casts: object):
+        short_num = len(self.players)-len(casts)
+        if short_num < 0:
+            return -1
+        self.casts = casts
+        for i in range(short_num):
+            self.casts.append(villager)
 
     # キャストの割り当て
-    def assign_cast(self, casts):
-        for player, cast in zip(self.players, random.sample(casts, self.num)):
+    def assign_cast(self):
+        for player, cast in zip(self.players, random.sample(self.casts, len(self.players))):
             player["cast"] = cast.name
 
     def is_assigned(self, sid):
@@ -64,7 +74,7 @@ class Village:
         return ''
 
 
-vil = Village(players)
+vil = Village()
 
 
 @app.route('/')
@@ -72,9 +82,25 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/gm', methods=["GET", "POST"])
+def gm():
+    if request.method == "GET":
+        return render_template('gm.html')
+    else:
+        namelist = request.get_json()['data']
+        vil.set_players(namelist)
+        return jsonify({'res':'サーバーに送信完了'})
+
+
 @app.route('/player_list')
 def show_list():
     return jsonify(vil.players)
+
+
+@socketio.on('submit member')
+def submit_member(namelist):
+    vil.set_players(namelist)
+    emit('broadcast_message', {'players': vil.players}, broadcast=True)
 
 
 @socketio.on('join')
@@ -82,13 +108,12 @@ def join(index, isActive):
     player = vil.players[index]
     player['sid'] = request.sid
     player['isActive'] = isActive
-    print(vil.players)
-    # room = player.get('cast')
-    # join_room(room)
+    message = player['name'] + 'さん、ようこそ' if isActive else ''
+    emit('personal_message', {'msg': message, 'data': player['sid']})
     emit('broadcast_message', {'players': vil.players}, broadcast=True)
 
 
-# @socketio.on('candindexateGM')
+# @socketio.on('candindateGM')
 # def candidateGM(index):
 #     for pl in vil.players:
 #         pl["isGM"] = False
@@ -99,24 +124,18 @@ def join(index, isActive):
 
 @socketio.on('casting')
 def casting():
-    vil.assign_cast(casts)
+    vil.select_cast(casts)
+    vil.assign_cast()
     emit('broadcast_message', {'players': vil.players}, broadcast=True)
-
-sids=[]
-@socketio.on("connect")
-def connect():
-    sid = request.sid
-    sids.append(sid)
-    player = vil.is_assigned(sid)
-    emit('login', {'data': player}, room=sid)
-
 
 
 @socketio.on("disconnect")
 def disconnect():
     sid = request.sid
-    sids.remove(sid)
-
+    for player in vil.players:
+        if player['sid'] == sid:
+            player['isActive'] = False
+    emit('broadcast_message', {'players': vil.players}, broadcast=True)
 
 if __name__ == '__main__':
     socketio.run(app, host='192.168.2.29', port=5000, debug=True)

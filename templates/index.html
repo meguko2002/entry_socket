@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 
 <head>
     <meta charset="UTF-8">
@@ -33,25 +33,22 @@
                     <td>[[ player.name ]]</td>
                     <td>
                         <button v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
-                            :disabled="isBtnDisable(player)">
+                            :disabled="isBtnDisable(player, index)">
                             [[ btnName ]]</button>
-
+                        <button v-bind:class={active:player.isActive} v-on:click="getGM(index)"
+                            :disabled="isBtnDisable(player, index)">
+                            [[ GM? ]]</button>
                     </td>
-                    <td v-show="isMyIndex(player)">[[ player.cast ]]</td>
+                    <td v-show="index == myIndex">[[ player.cast ]]</td>
                 </tr>
             </tbody>
         </table>
-        <button v-show='myIndex!==""' v-on:click="candidateGM">GM?</button>
-        <p>[[personaldata]]</p>
+
+        <p> [[personalmessage]]</p>
         <p>[[broadcastdata]]</p>
-        <!-- <template v-if="myData.isGM">
-            <h2>GM用</h2>
-            <button v-on:click="casting" :disabled="isReady">[[ GMbtnName ]]</button>
-        </template> -->
-        <!-- <ul>
-            <li v-for="data in datas">[[ data ]]</li>
-        </ul> -->
+        <button v-if="isReady" v-on:click="casting">[[GMbtnName]]</button>
     </div>
+    <div><a href="/gm">→参加者変更</a></div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
@@ -65,29 +62,29 @@
             el: '#app',
             data: {
                 players: [],
-                personaldata: "",
+                personalmessage: "",
                 broadcastdata: "",
                 myIndex: "-1",
                 mySid: "",
-                btnName: "入室",
+                btnName: "参加",
                 privateData: "",
                 phase: "待ち合わせ室",
-                GMbtnName: "配役",
+                GMbtnName: "ゲーム開始",
                 onGame: false,
             },
             computed: {
-                // myData: function () {
-                //     if (this.myIndex !== "-1") {
-                //         return this.players[this.myIndex]
-                //     }
-                //     return ""
-                // },
                 isReady: function () {
-                    for (player of this.players) {
-                        if (player.isActive == false) { return true }
+                    if (this.players.length < 3) {
+                        return false
                     }
-                    return false
+                    for (player of this.players) {
+                        if (player.isActive == false) { return false }
+                    }
+                    return true
                 },
+                IamGM: function(){
+                    return (this.players[this.myIndex].isGM) ?  true : false
+                }
             },
             methods: {
                 submitUser(index) {
@@ -101,36 +98,28 @@
                     }
                     socket.emit('join', index, this.players[index].isActive)
                 },
-                candidateGM() {
-                    socket.emit('candidateGM', this.myIndex)
-                },
-                isMyIndex: function (player) {
-                    return this.myIndex == player.index
-                },
-                isBtnDisable: function (player) {
-                    if (this.myIndex == "-1") {
-                        if (player.isActive) {
+                isBtnDisable: function (player, index) {
+                    if (this.myIndex == "-1") {         //自分未登録の場合
+                        if (player.isActive) {              //登録済みのボタンは押せない
                             return true
                         }
-                        return false
+                        return false                        //未登録ボタンは押せる
                     }
-                    else {
-                        if (player.index == this.myIndex) {
+                    else {                              //自分登録済みの場合
+                        if (index == this.myIndex) { //自分のボタンは押せる
                             return false
                         }
-                        return true
+                        return true                         //自分のボタン以外は押せない
                     }
+                },
+                getGM:function(index){
+                    this.players[index].isGM =true
                 },
                 // GM用メソッド  
-                go_next() {
-                    if (!this.onGame) {
-                        this.onGame = true
-                        this.casting()
-                    }
-                },
                 casting() {
                     socket.emit('casting')
                     this.phase = "配役完了"
+                    this.GMbtnName = "追放者決定"
                 },
             },
             mounted: function () {
@@ -140,14 +129,9 @@
                     })
                     .catch(error => console.log(error))
                 socket.on('personal_message', (data) => {
-                    this.personaldata = data.msg
+                    this.personalmessage = data.msg
                     this.mySid = data.data
                 })
-                // socket.on('login', (data) => {
-                //     if(data.player !==''){
-                //         this.myIndex = data.player.index 
-                //     }
-                // })
                 socket.on('broadcast_message', (data) => {
                     this.players = data.players
                 })

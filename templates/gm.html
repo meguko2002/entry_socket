@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app">
+        <h1>[[ phase ]]</h1>
+        <input type="text" v-model="playername" rel="input" v-on:keyup.enter="entry">
+        <button v-on:click="entry">追加</button>
+        <table class="table table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>名前</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(name, index)  in namelist">
+                    <td>[[ index ]]</td>
+                    <td>[[ name ]]</td>
+                    <td>
+                        <button v-on:click="cancel(index)">
+                            キャンセル</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <button v-on:click="submitMember">待ち合わせ室へ</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
+        integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
+        crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+        const socket = io('http://192.168.2.29:5000');
+        Vue.options.delimiters = ['[[', ']]'];
+        const app = new Vue({
+            el: '#app',
+            data: {
+                phase: "参加者登録",
+                namelist: [],
+                playername: "",
+            },
+            methods: {
+                entry: function () {
+                    this.namelist.push(this.playername)
+                    this.playername = ""
+                },
+                cancel: function (index) {
+                    this.namelist.splice(index, 1)
+                },
+                submitMember: function () {
+                    socket.emit('submit member', this.namelist)
+                    location.href = "/";
+                },
+            },
+            mounted: function () {
+                axios.get('/player_list')
+                    .then(response => {
+                        this.namelist = response.data.map(el => el.name)
+                    })
+                    .catch(error => console.log(error))
+            }
+        })
+    </script>
+</body>
+
+</html>
