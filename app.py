@@ -40,18 +40,26 @@ casts = [villager, wolf, fortuneTeller]
 
 class Village:
     def __init__(self):
-        self.players = []
+        self.players = [{'name': '浩司', "isActive": False, "sid": '', "isAlive": True, "isGM": True},
+                        {'name': '恵', "isActive": False, "sid": '', "isAlive": True, "isGM": False},
+                        {'name': 'ポコ', "isActive": False, "sid": '', "isAlive": True, "isGM": False}]
         self.namelist = []
         self.casts = []
 
-    def set_players(self,namelist):
+    def set_players(self, namelist):
         self.namelist = [player['name'] for player in self.players]
         for name in namelist:
             if name not in self.namelist:
                 self.players.append({'name': name, "isActive": False, "sid": '', "isAlive": True, "isGM": False})
+        gm_exist = False
         for player in self.players:
             if player['name'] not in namelist:
                 self.players.remove(player)
+            if player['isGM']:
+                gm_exist = True
+        # GMが割り当てられていなければはじめの人が仮のGM
+        if not gm_exist:
+            self.players[0]['isGM'] = True
 
     # キャスト決め
     def select_cast(self, casts: object):
@@ -69,7 +77,7 @@ class Village:
 
     def is_assigned(self, sid):
         for player in self.players:
-            if player['sid']==sid:
+            if player['sid'] == sid:
                 return player
         return ''
 
@@ -82,14 +90,9 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/gm', methods=["GET", "POST"])
+@app.route('/gm')
 def gm():
-    if request.method == "GET":
-        return render_template('gm.html')
-    else:
-        namelist = request.get_json()['data']
-        vil.set_players(namelist)
-        return jsonify({'res':'サーバーに送信完了'})
+    return render_template('gm.html')
 
 
 @app.route('/player_list')
@@ -109,23 +112,20 @@ def join(index, isActive):
     player['sid'] = request.sid
     player['isActive'] = isActive
     message = player['name'] + 'さん、ようこそ' if isActive else ''
-    emit('personal_message', {'msg': message, 'data': player['sid']})
+    emit('personal_message', {'msg': message, 'info': {'sid': player['sid']}})
     emit('broadcast_message', {'players': vil.players}, broadcast=True)
-
-
-# @socketio.on('candindateGM')
-# def candidateGM(index):
-#     for pl in vil.players:
-#         pl["isGM"] = False
-#     player = vil.players[index]
-#     player["isGM"] = True
-#     emit('broadcast_message', {'msg': f'{player["name"]}さんはGMです', 'players': vil.players}, broadcast=True)
 
 
 @socketio.on('casting')
 def casting():
     vil.select_cast(casts)
     vil.assign_cast()
+    emit('broadcast_message', {'players': vil.players, 'info':{'state': 'vote'}}, broadcast=True)
+
+@socketio.on('give GM')
+def give_gm(myindex, index):
+    vil.players[myindex]["isGM"] = False
+    vil.players[index]["isGM"] = True
     emit('broadcast_message', {'players': vil.players}, broadcast=True)
 
 
@@ -136,6 +136,7 @@ def disconnect():
         if player['sid'] == sid:
             player['isActive'] = False
     emit('broadcast_message', {'players': vil.players}, broadcast=True)
+
 
 if __name__ == '__main__':
     socketio.run(app, host='192.168.2.29', port=5000, debug=True)

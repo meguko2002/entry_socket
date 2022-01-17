@@ -16,11 +16,12 @@
 
 <body>
     <div id="app">
-        <h1>[[ phase ]]</h1>
+        <h1>[[ phase[0].title ]]</h1>
         <table class="table table-bordered">
             <thead class="thead-dark">
                 <tr>
                     <th>ID</th>
+                    <th>名前</th>
                     <th>名前</th>
                     <th>アクション</th>
                     <th>役職</th>
@@ -32,23 +33,27 @@
                     <td>[[ index ]]</td>
                     <td>[[ player.name ]]</td>
                     <td>
-                        <button v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
-                            :disabled="isBtnDisable(player, index)">
-                            [[ btnName ]]</button>
-                        <button v-bind:class={active:player.isActive} v-on:click="getGM(index)"
-                            :disabled="isBtnDisable(player, index)">
-                            [[ GM? ]]</button>
+                        <button v-if="phaseNum==0" v-show="player.isGM" v-on:click="giveGM()"
+                            :disabled="isGMDisable(index)">GM</button>
+                        <button v-else-if="phaseNum==1" v-on:click="submitGM(index)">
+                            GM</button>
+                    </td>
+                    <td>
+                        <button v-if="phaseNum==0" v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
+                            :disabled="isBtnDisable(index)">
+                            [[ phase[0].btnName ]] </button>
+
                     </td>
                     <td v-show="index == myIndex">[[ player.cast ]]</td>
                 </tr>
             </tbody>
         </table>
-
         <p> [[personalmessage]]</p>
-        <p>[[broadcastdata]]</p>
-        <button v-if="isReady" v-on:click="casting">[[GMbtnName]]</button>
+        <component v-show="IamGM">
+            <button v-on:click="casting">[[ phase[2].btnName]]</button>
+            <button v-on:click="changeGM">参加者変更</button>
+        </component>
     </div>
-    <div><a href="/gm">→参加者変更</a></div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
@@ -58,19 +63,20 @@
     <script>
         const socket = io('http://192.168.2.29:5000');
         Vue.options.delimiters = ['[[', ']]'];
+
         const app = new Vue({
             el: '#app',
             data: {
                 players: [],
-                personalmessage: "",
-                broadcastdata: "",
+                phase: [{ title: "待ち合わせ室", btnName: "参加" },
+                { title: "GM変更", btnName: "GM" },
+                { title: "配役", btnName: "配役" },
+                ],
+                phaseNum: 0,
+
                 myIndex: "-1",
                 mySid: "",
-                btnName: "参加",
-                privateData: "",
-                phase: "待ち合わせ室",
-                GMbtnName: "ゲーム開始",
-                onGame: false,
+                personalmessage: "",
             },
             computed: {
                 isReady: function () {
@@ -82,8 +88,11 @@
                     }
                     return true
                 },
-                IamGM: function(){
-                    return (this.players[this.myIndex].isGM) ?  true : false
+                IamGM: function () {
+                    if (this.myIndex != "-1" && this.players[this.myIndex].isGM) {
+                        return true
+                    }
+                    return false
                 }
             },
             methods: {
@@ -98,9 +107,9 @@
                     }
                     socket.emit('join', index, this.players[index].isActive)
                 },
-                isBtnDisable: function (player, index) {
+                isBtnDisable: function (index) {
                     if (this.myIndex == "-1") {         //自分未登録の場合
-                        if (player.isActive) {              //登録済みのボタンは押せない
+                        if (this.players[index].isActive) {              //登録済みのボタンは押せない
                             return true
                         }
                         return false                        //未登録ボタンは押せる
@@ -112,10 +121,26 @@
                         return true                         //自分のボタン以外は押せない
                     }
                 },
-                getGM:function(index){
-                    this.players[index].isGM =true
+                isGMDisable: function (index) {
+                    if (this.myIndex != "-1" && this.players[this.myIndex].isGM) {
+                        return false
+                    }
+                    return true
                 },
-                // GM用メソッド  
+
+                // GM用メソッド
+                changeGM: function () {
+                    location.href = "/gm";
+                },
+                giveGM: function () {
+                    this.personalmessage = "どなたにGMを譲りますか"
+                    this.phaseNum = 1
+                },
+                submitGM: function (index) {
+                    socket.emit('give GM', this.myIndex, index)
+                    this.personalmessage = ""
+                    this.phaseNum = 0
+                },
                 casting() {
                     socket.emit('casting')
                     this.phase = "配役完了"
@@ -130,7 +155,7 @@
                     .catch(error => console.log(error))
                 socket.on('personal_message', (data) => {
                     this.personalmessage = data.msg
-                    this.mySid = data.data
+                    this.mySid = data.info.sid
                 })
                 socket.on('broadcast_message', (data) => {
                     this.players = data.players
