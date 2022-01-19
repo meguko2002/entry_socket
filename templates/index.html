@@ -16,43 +16,57 @@
 
 <body>
     <div id="app">
-        <h1>[[ phase[0].title ]]</h1>
-        <table class="table table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>名前</th>
-                    <th>名前</th>
-                    <th>アクション</th>
-                    <th>役職</th>
-
-                </tr>
-            </thead>
-            <tbody>
+        <h1>[[phase]]</h1>
+        <template v-if="phase=='参加受付中'">
+            <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
-                    <td>[[ player.name ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-if="phaseNum==0" v-show="player.isGM" v-on:click="giveGM()"
+                        <button v-show="player.isGM && !gmChanging" v-on:click="changeGM"
                             :disabled="isGMDisable(index)">GM</button>
-                        <button v-else-if="phaseNum==1" v-on:click="submitGM(index)">
+                        <button v-show="gmChanging" v-on:click="submitGM(index)">
                             GM</button>
                     </td>
                     <td>
-                        <button v-if="phaseNum==0" v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
+                        <button v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
                             :disabled="isBtnDisable(index)">
-                            [[ phase[0].btnName ]] </button>
-
+                            参加 </button>
                     </td>
-                    <td v-show="index == myIndex">[[ player.cast ]]</td>
                 </tr>
-            </tbody>
-        </table>
-        <p> [[personalmessage]]</p>
-        <component v-show="IamGM">
-            <button v-on:click="casting">[[ phase[2].btnName]]</button>
-            <button v-on:click="changeGM">参加者変更</button>
-        </component>
+            </table>
+            <button v-if="IamGM" v-on:click="changeMember">参加者変更</button>
+            <button v-if="IamGM" v-on:click="cast" :disabled="!ready">試合開始</button>
+        </template>
+
+        <template v-if="ongame">
+            <table class="table table-bordered">
+                <tr v-for="(player, index) in players">
+                    <td>[[ index ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
+                    <td>
+                        <button v-if="IamGM" v-on:click="vote(index)">追放</button>
+                    </td>
+                    <td v-show="index == myIndex">[[ casts[index] ]]</td>
+                </tr>
+            </table>
+            <button v-if="IamGM" v-on:click="judge">結果判定</button>
+        </template>
+
+        <template v-if="gameover">
+            <table class="table table-bordered">
+                <tr v-for="(player, index) in players">
+                    <td>[[ index ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
+                    <td>[[ casts[index] ]]</td>
+                    <td>
+                    </td>
+                </tr>
+            </table>
+            <button v-if="IamGM" v-on:click="nextGame">次の試合</button>
+        </template>
+
+        <p> [[message]]</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -68,28 +82,33 @@
             el: '#app',
             data: {
                 players: [],
-                phase: [{ title: "待ち合わせ室", btnName: "参加" },
-                { title: "GM変更", btnName: "GM" },
-                { title: "配役", btnName: "配役" },
-                ],
-                phaseNum: 0,
-
+                casts:[],
+                // phaseId: 0,
+                //["参加受付中", "昼", "夜"]
+                phase: "参加受付中",
                 myIndex: "-1",
-                mySid: "",
-                personalmessage: "",
+                message: "",
+                gmChanging: false,
+                
             },
             computed: {
-                isReady: function () {
-                    if (this.players.length < 3) {
-                        return false
-                    }
-                    for (player of this.players) {
-                        if (player.isActive == false) { return false }
-                    }
-                    return true
-                },
                 IamGM: function () {
                     if (this.myIndex != "-1" && this.players[this.myIndex].isGM) {
+                        return true
+                    }
+                    return false
+                },
+                ready: function () {
+                    return !this.players.map(player => player.isActive).includes(false)
+                },
+                gameover: function(){
+                    if(this.phase=='市民勝利' || this.phase=='人狼勝利'){
+                        return true
+                    }
+                    return false
+                },
+                ongame: function(){
+                    if(this.phase=='昼' || this.phase=='夜'){
                         return true
                     }
                     return false
@@ -129,22 +148,30 @@
                 },
 
                 // GM用メソッド
-                changeGM: function () {
+                changeMember: function () {
                     location.href = "/gm";
                 },
-                giveGM: function () {
-                    this.personalmessage = "どなたにGMを譲りますか"
-                    this.phaseNum = 1
+                changeGM: function () {
+                    this.gmChanging = true
+                    this.message = "どなたにGMを譲りますか"
+
                 },
                 submitGM: function (index) {
-                    socket.emit('give GM', this.myIndex, index)
-                    this.personalmessage = ""
-                    this.phaseNum = 0
+                    socket.emit('submit GM', this.myIndex, index)
+                    this.message = ""
+                    this.gmChanging = false
                 },
-                casting() {
-                    socket.emit('casting')
-                    this.phase = "配役完了"
-                    this.GMbtnName = "追放者決定"
+                cast: function () {
+                    socket.emit('cast')
+                },
+                vote: function (index) {
+                    socket.emit('vote', index)
+                },
+                judge: function () {
+                    socket.emit('judge')
+                },
+                nextGame: function () {
+                    socket.emit('next game')
                 },
             },
             mounted: function () {
@@ -153,12 +180,11 @@
                         this.players = response.data
                     })
                     .catch(error => console.log(error))
-                socket.on('personal_message', (data) => {
-                    this.personalmessage = data.msg
-                    this.mySid = data.info.sid
-                })
-                socket.on('broadcast_message', (data) => {
-                    this.players = data.players
+                socket.on('message', (data) => {
+                    if ("msg" in data) { this.message = data.msg }
+                    if ("players" in data) { this.players = data.players }
+                    if ("phase" in data) { this.phase = data.phase }
+                    if ("casts" in data) { this.casts = data.casts }
                 })
             }
         })

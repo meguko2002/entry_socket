@@ -8,6 +8,11 @@ socketio = SocketIO(app)
 
 
 class Cast:
+    def __init__(self):
+        self.name = None
+
+    def __str__(self):
+        return self.name
     pass
 
 
@@ -40,21 +45,23 @@ casts = [villager, wolf, fortuneTeller]
 
 class Village:
     def __init__(self):
-        self.players = [{'name': '浩司', "isActive": False, "sid": '', "isAlive": True, "isGM": True},
-                        {'name': '恵', "isActive": False, "sid": '', "isAlive": True, "isGM": False},
-                        {'name': 'ポコ', "isActive": False, "sid": '', "isAlive": True, "isGM": False}]
-        self.namelist = []
+        self.players = [{'name': '浩司', 'isActive': False, 'sid': '', 'isAlive': True, 'isGM': True},
+                        {'name': '恵', 'isActive': False, 'sid': '', 'isAlive': True, 'isGM': False},
+                        {'name': 'ポコ', 'isActive': False, 'sid': '', 'isAlive': True, 'isGM': False}]
         self.casts = []
+        self.castnames = []
+        self.phase = '参加受付中'
 
-    def set_players(self, namelist):
-        self.namelist = [player['name'] for player in self.players]
-        for name in namelist:
-            if name not in self.namelist:
-                self.players.append({'name': name, "isActive": False, "sid": '', "isAlive": True, "isGM": False})
+    def set_players(self, request_namelist):
+        namelist = [player['name'] for player in self.players]
+        for name in request_namelist:
+            if name not in namelist:
+                self.players.append({'name': name, 'isActive': False, 'sid': '', 'isAlive': True, 'isGM': False})
+        for player in self.players:
+            if player['name'] not in request_namelist:
+                self.players.remove(player)
         gm_exist = False
         for player in self.players:
-            if player['name'] not in namelist:
-                self.players.remove(player)
             if player['isGM']:
                 gm_exist = True
         # GMが割り当てられていなければはじめの人が仮のGM
@@ -72,18 +79,33 @@ class Village:
 
     # キャストの割り当て
     def assign_cast(self):
-        for player, cast in zip(self.players, random.sample(self.casts, len(self.players))):
-            player["cast"] = cast.name
+        random.shuffle(self.casts)
+        self.castnames = [cast.name for cast in self.casts]
 
-    def is_assigned(self, sid):
+    def expel(self, id):
+        self.players[id]['isAlive'] = False
+
+    def judge(self):
+        white_num = 0
+        black_num = 0
+        for player, cast in zip(self.players, self.casts):
+            if player['isAlive']:
+                if cast.team == 'white':
+                    white_num += 1
+                elif cast.team == 'black':
+                    black_num += 1
+        if white_num <= black_num:
+            self.phase = '人狼勝利'
+        elif black_num == 0:
+            self.phase = '市民勝利'
+        else:
+            self.phase = '昼' if self.phase=='夜' else '昼'
+
+    def reset(self):
         for player in self.players:
-            if player['sid'] == sid:
-                return player
-        return ''
-
+            player['isAlive'] = True
 
 vil = Village()
-
 
 @app.route('/')
 def index():
@@ -103,39 +125,62 @@ def show_list():
 @socketio.on('submit member')
 def submit_member(namelist):
     vil.set_players(namelist)
-    emit('broadcast_message', {'players': vil.players}, broadcast=True)
+    emit('message', {'players': vil.players}, broadcast=True)
 
 
 @socketio.on('join')
 def join(index, isActive):
     player = vil.players[index]
     player['sid'] = request.sid
+    room = session.get('room')
+    join_room(room)
     player['isActive'] = isActive
     message = player['name'] + 'さん、ようこそ' if isActive else ''
-    emit('personal_message', {'msg': message, 'info': {'sid': player['sid']}})
-    emit('broadcast_message', {'players': vil.players}, broadcast=True)
+    emit('message', {'msg': message}, room=player['sid'])
+    emit('message', {'players': vil.players}, broadcast=True)
 
 
-@socketio.on('casting')
-def casting():
+@socketio.on('cast')
+def cast():
+    vil.reset()
     vil.select_cast(casts)
     vil.assign_cast()
-    emit('broadcast_message', {'players': vil.players, 'info':{'state': 'vote'}}, broadcast=True)
+    vil.phase = '昼'
+    emit('message', {'players': vil.players, 'casts': vil.castnames, 'phase': vil.phase}, broadcast=True)
+    for i, player in enumerate(vil.players):
+        emit('message', {'msg': player['name']+'さんは'+vil.casts[i].name}, room=player['sid'])
 
-@socketio.on('give GM')
+@socketio.on('vote')
+def vote(id):
+    vil.expel(id)
+    emit('message', {'msg': vil.players[id]['name']+'さんは追放されました','players': vil.players, 'phase':'夜'}, broadcast=True)
+
+@socketio.on('judge')
+def judge():
+    vil.judge()
+    emit('message', {'players': vil.players, 'phase': vil.phase, 'msg': vil.phase}, broadcast=True)
+
+@socketio.on('next game')
+def next_game():
+    vil.reset()
+    vil.phase = '参加受付中'
+    emit('message', {'players': vil.players,'phase': vil.phase, 'msg': vil.phase}, broadcast=True)
+
+@socketio.on('submit GM')
 def give_gm(myindex, index):
-    vil.players[myindex]["isGM"] = False
-    vil.players[index]["isGM"] = True
-    emit('broadcast_message', {'players': vil.players}, broadcast=True)
+    vil.players[myindex]['isGM'] = False
+    vil.players[index]['isGM'] = True
+    emit('message', {'players': vil.players}, broadcast=True)
 
 
-@socketio.on("disconnect")
+@socketio.on('disconnect')
 def disconnect():
     sid = request.sid
+    # leave_room()
     for player in vil.players:
         if player['sid'] == sid:
             player['isActive'] = False
-    emit('broadcast_message', {'players': vil.players}, broadcast=True)
+    emit('message', {'players': vil.players}, broadcast=True)
 
 
 if __name__ == '__main__':

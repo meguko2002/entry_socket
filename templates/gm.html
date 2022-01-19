@@ -10,6 +10,7 @@
 
 <body>
     <div id="app">
+        
         <h1>[[ phase ]]</h1>
         <input type="text" v-model="playername" rel="input" v-on:keyup.enter="entry">
         <button v-on:click="entry">追加</button>
@@ -32,6 +33,7 @@
             </tbody>
         </table>
         <button v-on:click="submitMember">待ち合わせ室へ</button>
+        
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
