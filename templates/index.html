@@ -52,7 +52,7 @@
                     </td>
                 </tr>
             </table>
-            <button v-on:click="submitMember">待ち合わせ室へ</button>
+            <button v-on:click="submitMember">参加受付へ</button>
 
         </template>
 
@@ -67,7 +67,7 @@
                     <td v-show="index == myIndex">[[ casts[index] ]]</td>
                 </tr>
             </table>
-            <button v-if="IamGM" v-on:click="judge">結果判定</button>
+            <button v-if="IamGM" v-on:click="judge":disabled="isVoted">結果判定</button>
         </template>
 
         <template v-if="gameover">
@@ -76,8 +76,6 @@
                     <td>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>[[ casts[index] ]]</td>
-                    <td>
-                    </td>
                 </tr>
             </table>
             <button v-if="IamGM" v-on:click="nextGame">次の試合</button>
@@ -106,7 +104,7 @@
                 myIndex: "-1",
                 message: "",
                 gmChanging: false,
-
+                isVoted: false,
             },
             computed: {
                 IamGM: function () {
@@ -129,9 +127,6 @@
                         return true
                     }
                     return false
-                },
-                namelist: function () {
-                    return this.players.map(player => player.name)
                 },
                 player: function () {
                     return { 'name': this.playername, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
@@ -177,7 +172,6 @@
                 changeGM: function () {
                     this.gmChanging = true
                     this.message = "どなたにGMを譲りますか"
-
                 },
                 submitGM: function (index) {
                     socket.emit('submit GM', this.myIndex, index)
@@ -185,10 +179,12 @@
                     this.gmChanging = false
                 },
                 cast: function () {
+                    this.isVoted=true
                     socket.emit('cast')
                 },
                 vote: function (index) {
                     socket.emit('vote', index)
+                    this.isVoted=false
                 },
                 judge: function () {
                     socket.emit('judge')

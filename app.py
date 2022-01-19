@@ -83,7 +83,17 @@ class Village:
         elif black_num == 0:
             self.phase = '市民勝利'
         else:
-            self.phase = '昼' if self.phase=='夜' else '昼'
+            if self.phase=='昼':
+                self.phase = '夜'
+            else:
+                self.phase='昼'
+
+    def setplayers(self, players):
+        self.players = players
+        for player in self.players:
+            if player['isGM']:
+                return
+        self.players[0]['isGM']= True
 
     def reset(self):
         for player in self.players:
@@ -103,9 +113,8 @@ def show_list():
 
 @socketio.on('submit member')
 def submit_member(players):
-    vil.players = players
+    vil.setplayers(players)
     emit('message', {'players': vil.players}, broadcast=True)
-
 
 @socketio.on('join')
 def join(index, isActive):
