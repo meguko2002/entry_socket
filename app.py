@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, session, request
-from flask_socketio import SocketIO, emit, leave_room, join_room, send
+from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
 
 app = Flask(__name__)
@@ -52,22 +52,6 @@ class Village:
         self.castnames = []
         self.phase = '参加受付中'
 
-    def set_players(self, request_namelist):
-        namelist = [player['name'] for player in self.players]
-        for name in request_namelist:
-            if name not in namelist:
-                self.players.append({'name': name, 'isActive': False, 'sid': '', 'isAlive': True, 'isGM': False})
-        for player in self.players:
-            if player['name'] not in request_namelist:
-                self.players.remove(player)
-        gm_exist = False
-        for player in self.players:
-            if player['isGM']:
-                gm_exist = True
-        # GMが割り当てられていなければはじめの人が仮のGM
-        if not gm_exist:
-            self.players[0]['isGM'] = True
-
     # キャスト決め
     def select_cast(self, casts: object):
         short_num = len(self.players)-len(casts)
@@ -112,19 +96,14 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/gm')
-def gm():
-    return render_template('gm.html')
-
-
 @app.route('/player_list')
 def show_list():
     return jsonify(vil.players)
 
 
 @socketio.on('submit member')
-def submit_member(namelist):
-    vil.set_players(namelist)
+def submit_member(players):
+    vil.players = players
     emit('message', {'players': vil.players}, broadcast=True)
 
 

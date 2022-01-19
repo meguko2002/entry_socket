@@ -39,6 +39,23 @@
             <button v-if="IamGM" v-on:click="cast" :disabled="!ready">試合開始</button>
         </template>
 
+        <template v-if="phase=='参加者登録'">
+            <input type="text" v-model="playername" rel="input" v-on:keyup.enter="entry">
+            <button v-on:click="entry">追加</button>
+            <table class="table table-bordered">
+                <tr v-for="(player, index) in players">
+                    <td>[[ index ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
+                    <td>
+                        <button v-on:click="cancel(index)">
+                            キャンセル</button>
+                    </td>
+                </tr>
+            </table>
+            <button v-on:click="submitMember">待ち合わせ室へ</button>
+
+        </template>
+
         <template v-if="ongame">
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
@@ -82,14 +99,14 @@
             el: '#app',
             data: {
                 players: [],
-                casts:[],
-                // phaseId: 0,
+                playername: "",
+                casts: [],
                 //["参加受付中", "昼", "夜"]
                 phase: "参加受付中",
                 myIndex: "-1",
                 message: "",
                 gmChanging: false,
-                
+
             },
             computed: {
                 IamGM: function () {
@@ -101,17 +118,23 @@
                 ready: function () {
                     return !this.players.map(player => player.isActive).includes(false)
                 },
-                gameover: function(){
-                    if(this.phase=='市民勝利' || this.phase=='人狼勝利'){
+                gameover: function () {
+                    if (this.phase == '市民勝利' || this.phase == '人狼勝利') {
                         return true
                     }
                     return false
                 },
-                ongame: function(){
-                    if(this.phase=='昼' || this.phase=='夜'){
+                ongame: function () {
+                    if (this.phase == '昼' || this.phase == '夜') {
                         return true
                     }
                     return false
+                },
+                namelist: function () {
+                    return this.players.map(player => player.name)
+                },
+                player: function () {
+                    return { 'name': this.playername, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 }
             },
             methods: {
@@ -149,7 +172,7 @@
 
                 // GM用メソッド
                 changeMember: function () {
-                    location.href = "/gm";
+                    this.phase = "参加者登録"
                 },
                 changeGM: function () {
                     this.gmChanging = true
@@ -172,6 +195,19 @@
                 },
                 nextGame: function () {
                     socket.emit('next game')
+                },
+
+
+                entry: function () {
+                    this.players.push(this.player)
+                    this.playername = ""
+                },
+                cancel: function (index) {
+                    this.players.splice(index, 1)
+                },
+                submitMember: function () {
+                    socket.emit('submit member', this.players)
+                    this.phase = '参加受付中'
                 },
             },
             mounted: function () {
