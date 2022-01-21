@@ -56,7 +56,7 @@
 
         </template>
 
-        <template v-if="ongame">
+        <template v-if="phase=='昼'">
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
@@ -69,6 +69,38 @@
             </table>
             <button v-if="IamGM" v-on:click="judge":disabled="isVoted">結果判定</button>
         </template>
+
+        <!-- // gmが夜のボタンを押す(emit)すると、server側で、各キャストに送るメッセージと、
+        // 役職ごとの仕事対象者を各sidごとに送るようにする。
+        // 各プレイヤーはserverから送られたメッセージに従って対象者をボタン選択。結果をemit
+        // serverはプレイヤーからのemitを受けて結果を対象者に送る。
+        // 全部の役職者からの応答が終わったら勝敗判定して、夜明けをbroadcast -->
+
+        <template v-if="phase=='夜'">
+            <table class="table table-bordered">
+                <tr v-for="(player, index) in players">
+                    <td>[[ index ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
+                    <td v-show="index == myIndex">[[ casts[index] ]]</td>
+                </tr>
+            </table>
+            <button v-if="IamGM" v-on:click="toMidnight">夜へ</button>
+        </template>
+
+        <template v-if="phase=='深夜'">
+            <table class="table table-bordered">
+                <tr v-for="(player, index) in players">
+                    <td>[[ index ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
+                    <td>
+                        <button v-on:click="action(index)":disabled="!Target(index)">対象</button>
+                    </td>
+                    <td v-show="index == myIndex">[[ casts[index] ]]</td>
+                </tr>
+            </table>
+        </template>
+
+
 
         <template v-if="gameover">
             <table class="table table-bordered">
@@ -105,6 +137,7 @@
                 message: "",
                 gmChanging: false,
                 isVoted: false,
+                targetIndices: {}, // 各役職の投票対象となるindex
             },
             computed: {
                 IamGM: function () {
@@ -122,17 +155,15 @@
                     }
                     return false
                 },
-                ongame: function () {
-                    if (this.phase == '昼' || this.phase == '夜') {
-                        return true
-                    }
-                    return false
-                },
                 player: function () {
                     return { 'name': this.playername, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
-                }
+                },
             },
             methods: {
+                Target: function(index){
+                    if(index in this.targetIndices){return true}
+                    else{return false}
+                },
                 submitUser(index) {
                     if (this.players[index].isActive) {
                         this.players[index].isActive = false
@@ -164,6 +195,10 @@
                     }
                     return true
                 },
+                action:function(index){
+                    socket.emit('do action', index)
+                },
+
 
                 // GM用メソッド
                 changeMember: function () {
@@ -188,6 +223,9 @@
                 },
                 judge: function () {
                     socket.emit('judge')
+                },
+                toMidnight: function(){
+                    socket.emit('request night action')
                 },
                 nextGame: function () {
                     socket.emit('next game')
@@ -217,6 +255,7 @@
                     if ("players" in data) { this.players = data.players }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("casts" in data) { this.casts = data.casts }
+                    if ("target_indices" in data) { this.targeIndices = data.target_indices }
                 })
             }
         })
