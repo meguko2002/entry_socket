@@ -137,7 +137,7 @@
                 message: "",
                 gmChanging: false,
                 isVoted: false,
-                targetIndices: {}, // 各役職の投票対象となるindex
+                targetIndices: [], // 各役職の投票対象となるindex
             },
             computed: {
                 IamGM: function () {
@@ -161,7 +161,7 @@
             },
             methods: {
                 Target: function(index){
-                    if(index in this.targetIndices){return true}
+                    if(this.targetIndices.includes(index)){return true}
                     else{return false}
                 },
                 submitUser(index) {
@@ -225,7 +225,7 @@
                     socket.emit('judge')
                 },
                 toMidnight: function(){
-                    socket.emit('request night action')
+                    socket.emit('request action from gm')
                 },
                 nextGame: function () {
                     socket.emit('next game')
@@ -255,7 +255,9 @@
                     if ("players" in data) { this.players = data.players }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("casts" in data) { this.casts = data.casts }
-                    if ("target_indices" in data) { this.targeIndices = data.target_indices }
+                    if ("target_indices" in data) {
+                        console.log(data.target_indices)
+                        this.targetIndices = data.target_indices }
                 })
             }
         })
