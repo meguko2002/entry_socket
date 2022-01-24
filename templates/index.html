@@ -36,7 +36,7 @@
                 </tr>
             </table>
             <button v-if="IamGM" v-on:click="changeMember">参加者変更</button>
-            <button v-if="IamGM" v-on:click="cast" :disabled="!ready">試合開始</button>
+            <button v-if="IamGM" v-on:click="castAssign" :disabled="!ready">試合開始</button>
         </template>
 
         <template v-if="phase=='参加者登録'">
@@ -64,7 +64,7 @@
                     <td>
                         <button v-if="IamGM" v-on:click="vote(index)">追放</button>
                     </td>
-                    <td v-show="index == myIndex">[[ casts[index] ]]</td>
+                    <td v-show="index == myIndex">[[ cast ]]</td>
                 </tr>
             </table>
             <button v-if="IamGM" v-on:click="judge":disabled="isVoted">結果判定</button>
@@ -81,7 +81,7 @@
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <td v-show="index == myIndex">[[ casts[index] ]]</td>
+                    <td v-show="index == myIndex">[[ cast ]]</td>
                 </tr>
             </table>
             <button v-if="IamGM" v-on:click="toMidnight">夜へ</button>
@@ -95,7 +95,7 @@
                     <td>
                         <button v-on:click="action(index)":disabled="!Target(index)">対象</button>
                     </td>
-                    <td v-show="index == myIndex">[[ casts[index] ]]</td>
+                    <td v-show="index == myIndex">[[ cast ]]</td>
                 </tr>
             </table>
         </template>
@@ -107,7 +107,7 @@
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <td>[[ casts[index] ]]</td>
+                    <!-- <td>[[ casts[index] ]]</td> -->
                 </tr>
             </table>
             <button v-if="IamGM" v-on:click="nextGame">次の試合</button>
@@ -130,7 +130,7 @@
             data: {
                 players: [],
                 playername: "",
-                casts: [],
+                cast: "",
                 //["参加受付中", "昼", "夜"]
                 phase: "参加受付中",
                 myIndex: "-1",
@@ -213,9 +213,9 @@
                     this.message = ""
                     this.gmChanging = false
                 },
-                cast: function () {
+                castAssign: function () {
                     this.isVoted=true
-                    socket.emit('cast')
+                    socket.emit('cast assign')
                 },
                 vote: function (index) {
                     socket.emit('vote', index)
@@ -254,7 +254,7 @@
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
                     if ("phase" in data) { this.phase = data.phase }
-                    if ("casts" in data) { this.casts = data.casts }
+                    if ("cast" in data) { this.cast = data.cast }
                     if ("target_indices" in data) {
                         console.log(data.target_indices)
                         this.targetIndices = data.target_indices }
