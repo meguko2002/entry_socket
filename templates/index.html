@@ -53,30 +53,27 @@
                 </tr>
             </table>
             <button v-on:click="submitMember">参加受付へ</button>
-
         </template>
 
-        <template v-if="phase=='昼'">
+        <template v-if="phase==('昼' || '夜' || '深夜')">
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-if="IamGM" v-on:click="vote(index)">追放</button>
+                        <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)" :disabled="!isVoted">追放</button>
+                        <button v-if="IamGM && phase=='深夜'" v-on:click="action(index)"
+                            :disabled="!Target(index)">対象</button>
                     </td>
                     <td v-show="index == myIndex">[[ cast ]]</td>
                 </tr>
             </table>
-            <button v-if="IamGM" v-on:click="judge":disabled="isVoted">結果判定</button>
+            <button v-if="IamGM && phase=='昼'" v-on:click="judge" :disabled="isVoted">結果判定</button>
+            <button v-if="IamGM && phase=='夜'" v-on:click="toMidnight">夜へ</button>
         </template>
 
-        <!-- // gmが夜のボタンを押す(emit)すると、server側で、各キャストに送るメッセージと、
-        // 役職ごとの仕事対象者を各sidごとに送るようにする。
-        // 各プレイヤーはserverから送られたメッセージに従って対象者をボタン選択。結果をemit
-        // serverはプレイヤーからのemitを受けて結果を対象者に送る。
-        // 全部の役職者からの応答が終わったら勝敗判定して、夜明けをbroadcast -->
 
-        <template v-if="phase=='夜'">
+        <!-- <template v-if="phase=='夜'">
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
@@ -98,7 +95,7 @@
                     <td v-show="index == myIndex">[[ cast ]]</td>
                 </tr>
             </table>
-        </template>
+        </template> -->
 
 
 
@@ -112,8 +109,8 @@
             </table>
             <button v-if="IamGM" v-on:click="nextGame">次の試合</button>
         </template>
-
-        <p> [[message]]</p>
+        <p> [[ castMessage ]]</p>
+        <p> [[ message ]]</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -134,6 +131,7 @@
                 //["参加受付中", "昼", "夜"]
                 phase: "参加受付中",
                 myIndex: "-1",
+                castMessage: "",
                 message: "",
                 gmChanging: false,
                 isVoted: false,
@@ -160,9 +158,9 @@
                 },
             },
             methods: {
-                Target: function(index){
-                    if(this.targetIndices.includes(index)){return true}
-                    else{return false}
+                Target: function (index) {
+                    if (this.targetIndices.includes(index)) { return true }
+                    else { return false }
                 },
                 submitUser(index) {
                     if (this.players[index].isActive) {
@@ -195,7 +193,8 @@
                     }
                     return true
                 },
-                action:function(index){
+                action: function (index) {
+                    console.log(index)
                     socket.emit('do action', index)
                 },
 
@@ -206,25 +205,25 @@
                 },
                 changeGM: function () {
                     this.gmChanging = true
-                    this.message = "どなたにGMを譲りますか"
+                    this.Message = "どなたにGMを譲りますか"
                 },
                 submitGM: function (index) {
                     socket.emit('submit GM', this.myIndex, index)
-                    this.message = ""
+                    this.Message = ""
                     this.gmChanging = false
                 },
                 castAssign: function () {
-                    this.isVoted=true
+                    this.isVoted = true
                     socket.emit('cast assign')
                 },
                 vote: function (index) {
                     socket.emit('vote', index)
-                    this.isVoted=false
+                    this.isVoted = false
                 },
                 judge: function () {
                     socket.emit('judge')
                 },
-                toMidnight: function(){
+                toMidnight: function () {
                     socket.emit('request action from gm')
                 },
                 nextGame: function () {
@@ -252,12 +251,14 @@
                     .catch(error => console.log(error))
                 socket.on('message', (data) => {
                     if ("msg" in data) { this.message = data.msg }
+                    if ("cast_msg" in data) { this.castMessage = data.cast_msg }
                     if ("players" in data) { this.players = data.players }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("cast" in data) { this.cast = data.cast }
                     if ("target_indices" in data) {
                         console.log(data.target_indices)
-                        this.targetIndices = data.target_indices }
+                        this.targetIndices = data.target_indices
+                    }
                 })
             }
         })

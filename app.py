@@ -8,20 +8,24 @@ socketio = SocketIO(app)
 
 
 class Cast:
-    # casts = []
 
     def __init__(self, ):
         self.name = '市民'
         self.team = 'white'
         self.color = 'white'
         self.message = '夜明けまでお待ちください'
-        # self.isAlive = True
+        self.done_action = True
 
     def __str__(self):
         return self.name
 
     def set_target(self, players):
+        #todo 関数名をもっといい感じのものに変える。　playerのボタン操作可否を伝える関数
         return []
+
+    def action(self, players,index):
+        # todo return [] とreturn Noneの違いを調査
+        return None
 
 
 class Villager(Cast):
@@ -29,7 +33,6 @@ class Villager(Cast):
 
 
 class Werewolf(Cast):
-    #
     def __init__(self):
         super(Werewolf, self).__init__()
         self.name = '人狼'
@@ -38,8 +41,8 @@ class Werewolf(Cast):
         self.message = '誰を襲いますか'
 
     def set_target(self, players):
+        self.done_action = False
         target_indices = []
-        # todo self.castsは使っていない。player['cast']を使うように変更
         for target_index, player in enumerate(players):
             if player['cast'] == self:
                 continue
@@ -49,6 +52,11 @@ class Werewolf(Cast):
                 continue
             target_indices.append(target_index)
         return target_indices
+
+    def action(self, players,index):
+        players[index]['isAlive'] = False
+        self.done_action = True
+        return '了解しました'
 
 
 class FortuneTeller(Cast):
@@ -60,6 +68,7 @@ class FortuneTeller(Cast):
         self.message = '誰を占いますか'
 
     def set_target(self, players):
+        self.done_action = False
         target_indices = []
         for target_index, player in enumerate(players):
             if player['cast'] == self:
@@ -69,14 +78,17 @@ class FortuneTeller(Cast):
             target_indices.append(target_index)
         return target_indices
 
+    def action(self, players, target_index):
+        reply = '人狼' if players[target_index]['cast'].color=='black' else '人狼ではない'
+        self.done_action = True
+        return players[target_index]['name']+'さんは '+ reply
 
-# villager = Villager()
-# wolf = Werewolf()
-# fortuneTeller = FortuneTeller()
+
 casts = [Villager(), Werewolf(), FortuneTeller()]
 players = [{'name': '浩司', 'isActive': False, 'isAlive': True, 'isGM': True},
            {'name': '恵', 'isActive': False, 'isAlive': True, 'isGM': False},
-           {'name': '太郎', 'isActive': False, 'isAlive': True, 'isGM': False},
+           {'name': '裕一', 'isActive': False, 'isAlive': True, 'isGM': False},
+           {'name': '正輝', 'isActive': False, 'isAlive': True, 'isGM': False},
            {'name': 'ポコ', 'isActive': False, 'isAlive': True, 'isGM': False}]
 
 
@@ -152,11 +164,17 @@ class Village:
         return messages, indices_set
 
     def search_player(self, sid):
-        for index, player in enumerate(self.players):
+        for player in self.players:
             if player['sid'] == sid:
-                # indexだけで十分
-                return index, player
+                return player
         return False
+
+    def done_actions(self):
+        for player in self.players:
+            if not player['cast'].done_action:
+                return False
+        return True
+
 
     def reset(self):
         for player in self.players:
@@ -227,22 +245,22 @@ def response_action():
     vil.phase = '深夜'
     messages, indices_set = vil.night_action()
     for player, message, target_indices in zip(vil.players, messages, indices_set):
-        emit('message', {'msg': message, 'phase': vil.phase, 'target_indices': target_indices}, room=player['sid'])
+        emit('message', {'msg':'','cast_msg': message, 'phase': vil.phase, 'target_indices': target_indices}, room=player['sid'])
 
 
 @socketio.on('do action')
-def action():
+def action(target_index):
     # todo ここに各役職から受け取ったactionに対する処理を記述
-    index, player = vil.search_player(request.sid)
-    pass
+    player = vil.search_player(request.sid)
+    if not player['cast'].done_action:
+        message = player['cast'].action(vil.players, target_index)
+        emit('message', {'cast_msg': message}, room=player['sid'])
 
-    for i, player in enumerate(vil.players):
-        message = vil.casts[i].message  # todo ここに役職ごとのメッセージ
-        indice = vil.casts[i].vote_indice  # todo ここに役職ごとの対象index
-        emit('message', {'msg': message, 'target_indices': indice}, room=player['sid'])
+        # todo もし全員のactionが完了したら
+        if vil.done_actions():
+            message = vil.judge()
+            emit('message', {'players': vil.players_wo_cast(), 'phase': vil.phase, 'msg': message}, broadcast=True)
 
-    # todo もし全員のactionが完了したら
-    judge()  # 夜明けor勝敗判定と、playersの状態を全員に告げる
 
 
 @socketio.on('next game')
