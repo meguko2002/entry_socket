@@ -1,9 +1,11 @@
 from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
+from datetime import timedelta #時間情報を用いるため
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
+app.permanent_session_lifetime = timedelta(minutes=5) # -> 5分 #(days=5) -> 5日保存
 socketio = SocketIO(app)
 
 
@@ -54,7 +56,7 @@ class Werewolf(Cast):
         return target_indices
 
     def action(self, players,index):
-        players[index]['isAlive'] = False
+        players[index]['target'] = True
         self.done_action = True
         return '了解しました'
 
@@ -97,6 +99,7 @@ class Village:
         self.players = players
         self.casts = casts
         self.phase = '参加受付中'
+        self.dead_player_names = []
 
     def players_wo_cast(self):
         player_list_for_send = []
@@ -130,19 +133,31 @@ class Village:
                     white_num += 1
                 elif player['cast'].team == 'black':
                     black_num += 1
-        if white_num <= black_num:
-            self.phase = '人狼勝利'
-            return '人狼勝利'
-        elif black_num == 0:
+        if black_num == 0:
             self.phase = '市民勝利'
             return '市民勝利'
+        elif white_num <= black_num:
+            self.phase = '人狼勝利'
+            return '人狼勝利'
+
         else:
-            if self.phase == '昼':
-                self.phase = '夜'
-                return '恐ろしい夜がやってまいりました'
+            self.playon()
+
+
+    def playon(self):
+        if self.phase == '昼':
+            self.phase = '夜'
+            return '恐ろしい夜がやってまいりました'
+        elif self.phase == '夜':
+            self.phase = '昼'
+            message = '夜が明けました'
+            if self.dead_player_names == []:
+                message += '昨晩襲撃された方は、いませんでした'
             else:
-                self.phase = '昼'
-                return '夜が明けました'
+                p_names = 'さんと、'.join(self.dead_player_names)
+                message += f'昨晩{p_names}さんが襲撃されました'
+                self.elf.dead_player_names = []
+            return message
 
     def setplayers(self, players):
         self.players = players
@@ -173,8 +188,15 @@ class Village:
         for player in self.players:
             if not player['cast'].done_action:
                 return False
+        self.gm_night_judge()
         return True
 
+    def gm_night_judge(self):
+        for player in self.players:
+            # GJ出なければplayerは襲撃
+            if player.get('target') and not player.get('protected'):
+                player['isAlive'] = False
+                self.dead_player_names.append(player['name'])
 
     def reset(self):
         for player in self.players:
@@ -205,9 +227,15 @@ def submit_member(players):
 def join(index, isActive):
     player = vil.players[index]
     player['sid'] = request.sid
+
+    # reloadしても前の情報が残るような処理を追加
+    # https://qiita.com/eee-lin/items/4e9a2a308ca52b58fd1e
+    #     user = request.form["nm"]  # ユーザー情報を保存する
+    #     session["user"] = user  # sessionにuser情報を保存
     # room とか　join_room(room)いるか、動作を再確認
     room = session.get('room')
     join_room(room)
+
     player['isActive'] = isActive
     message = player['name'] + 'さん、ようこそ' if isActive else ''
     emit('message', {'msg': message}, room=player['sid'])
@@ -258,7 +286,7 @@ def action(target_index):
 
         # todo もし全員のactionが完了したら
         if vil.done_actions():
-            message = vil.judge()
+            message = vil.judge() # todo: messageが入っていない。襲撃者はvil.dead_player_namesに入っている
             emit('message', {'players': vil.players_wo_cast(), 'phase': vil.phase, 'msg': message}, broadcast=True)
 
 

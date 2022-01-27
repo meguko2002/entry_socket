@@ -55,21 +55,21 @@
             <button v-on:click="submitMember">参加受付へ</button>
         </template>
 
-        <template v-if="phase==('昼' || '夜' || '深夜')">
+        <template v-if="playon">
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)" :disabled="!isVoted">追放</button>
-                        <button v-if="IamGM && phase=='深夜'" v-on:click="action(index)"
+                        <button v-else-if="phase=='深夜'" v-on:click="action(index)"
                             :disabled="!Target(index)">対象</button>
                     </td>
                     <td v-show="index == myIndex">[[ cast ]]</td>
                 </tr>
             </table>
             <button v-if="IamGM && phase=='昼'" v-on:click="judge" :disabled="isVoted">結果判定</button>
-            <button v-if="IamGM && phase=='夜'" v-on:click="toMidnight">夜へ</button>
+            <button v-else-if="IamGM && phase=='夜'" v-on:click="toMidnight">夜へ</button>
         </template>
 
 
@@ -156,6 +156,12 @@
                 player: function () {
                     return { 'name': this.playername, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
+                playon: function(){
+                    if (this.phase =='昼' || this.phase =='夜' || this.phase =='深夜'){
+                        return true
+                    }
+                    return false
+                }
             },
             methods: {
                 Target: function (index) {
