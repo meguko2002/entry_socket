@@ -36,7 +36,7 @@
                 </tr>
             </table>
             <button v-if="IamGM" v-on:click="changeMember">参加者変更</button>
-            <button v-if="IamGM" v-on:click="castAssign" :disabled="!ready">試合開始</button>
+            <button v-if="IamGM" v-on:click="assignCast" :disabled="!ready">試合開始</button>
         </template>
 
         <template v-if="phase=='参加者登録'">
@@ -55,61 +55,25 @@
             <button v-on:click="submitMember">参加受付へ</button>
         </template>
 
-        <template v-if="playon">
+        <template v-if="!waiting">
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
                     <td>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)" :disabled="!isVoted">追放</button>
+                        <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
+                            :disabled="isVoted || !player.isAlive">追放</button>
                         <button v-else-if="phase=='深夜'" v-on:click="action(index)"
                             :disabled="!Target(index)">対象</button>
                     </td>
-                    <td v-show="index == myIndex">[[ cast ]]</td>
+                    <td>[[ casts[index] ]]</td>
                 </tr>
             </table>
-            <button v-if="IamGM && phase=='昼'" v-on:click="judge" :disabled="isVoted">結果判定</button>
-            <button v-else-if="IamGM && phase=='夜'" v-on:click="toMidnight">夜へ</button>
+            <button v-if="IamGM && phase=='昼'" v-on:click="judge" :disabled="!isVoted">結果判定</button>
+            <button v-else-if="IamGM && phase=='夜'" v-on:click="toMidnight">夜のアクション</button>
+            <button v-if="IamGM && gameover" v-on:click="nextGame">次の試合</button>
         </template>
 
-
-        <!-- <template v-if="phase=='夜'">
-            <table class="table table-bordered">
-                <tr v-for="(player, index) in players">
-                    <td>[[ index ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <td v-show="index == myIndex">[[ cast ]]</td>
-                </tr>
-            </table>
-            <button v-if="IamGM" v-on:click="toMidnight">夜へ</button>
-        </template>
-
-        <template v-if="phase=='深夜'">
-            <table class="table table-bordered">
-                <tr v-for="(player, index) in players">
-                    <td>[[ index ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <td>
-                        <button v-on:click="action(index)":disabled="!Target(index)">対象</button>
-                    </td>
-                    <td v-show="index == myIndex">[[ cast ]]</td>
-                </tr>
-            </table>
-        </template> -->
-
-
-
-        <template v-if="gameover">
-            <table class="table table-bordered">
-                <tr v-for="(player, index) in players">
-                    <td>[[ index ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <!-- <td>[[ casts[index] ]]</td> -->
-                </tr>
-            </table>
-            <button v-if="IamGM" v-on:click="nextGame">次の試合</button>
-        </template>
-        <p> [[ castMessage ]]</p>
         <p> [[ message ]]</p>
     </div>
 
@@ -127,15 +91,13 @@
             data: {
                 players: [],
                 playername: "",
-                cast: "",
-                //["参加受付中", "昼", "夜"]
-                phase: "参加受付中",
+                casts: [],
+                phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "人狼勝利", "市民勝利", "第三勝利"]
                 myIndex: "-1",
-                castMessage: "",
                 message: "",
                 gmChanging: false,
                 isVoted: false,
-                targetIndices: [], // 各役職の投票対象となるindex
+                targetIndexes: [], // 各役職の投票対象となるindex
             },
             computed: {
                 IamGM: function () {
@@ -147,25 +109,23 @@
                 ready: function () {
                     return !this.players.map(player => player.isActive).includes(false)
                 },
+                waiting: function(){
+                    return ["参加受付中", "参加者登録"].includes(this.phase)
+                },
                 gameover: function () {
-                    if (this.phase == '市民勝利' || this.phase == '人狼勝利') {
-                        return true
-                    }
-                    return false
+                    return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
+                },
+                playon: function () {
+                    return ["昼", "夜", "深夜"].includes(this.phase)
                 },
                 player: function () {
                     return { 'name': this.playername, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
-                playon: function(){
-                    if (this.phase =='昼' || this.phase =='夜' || this.phase =='深夜'){
-                        return true
-                    }
-                    return false
-                }
+
             },
             methods: {
                 Target: function (index) {
-                    if (this.targetIndices.includes(index)) { return true }
+                    if (this.targetIndexes.includes(index)) { return true }
                     else { return false }
                 },
                 submitUser(index) {
@@ -218,16 +178,16 @@
                     this.Message = ""
                     this.gmChanging = false
                 },
-                castAssign: function () {
-                    this.isVoted = true
-                    socket.emit('cast assign')
+                assignCast: function () {
+                    socket.emit('assign cast')
                 },
                 vote: function (index) {
                     socket.emit('vote', index)
-                    this.isVoted = false
+                    this.isVoted = true
                 },
                 judge: function () {
                     socket.emit('judge')
+                    this.isVoted = false
                 },
                 toMidnight: function () {
                     socket.emit('request action from gm')
@@ -256,14 +216,13 @@
                     })
                     .catch(error => console.log(error))
                 socket.on('message', (data) => {
-                    if ("msg" in data) { this.message = data.msg }
-                    if ("cast_msg" in data) { this.castMessage = data.cast_msg }
-                    if ("players" in data) { this.players = data.players }
                     if ("phase" in data) { this.phase = data.phase }
-                    if ("cast" in data) { this.cast = data.cast }
-                    if ("target_indices" in data) {
-                        console.log(data.target_indices)
-                        this.targetIndices = data.target_indices
+                    if ("msg" in data) { this.message = data.msg }
+                    if ("players" in data) { this.players = data.players }
+                    if ("casts" in data) { this.casts = data.casts }
+                    if ("target_indexes" in data) {
+                        console.log(data.target_indexes)
+                        this.targetIndexes = data.target_indexes
                     }
                 })
             }
