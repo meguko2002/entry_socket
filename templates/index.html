@@ -17,63 +17,39 @@
 <body>
     <div id="app">
         <h1>[[phase]]</h1>
-        <template v-if="phase=='参加受付中'">
+        <template>
+            <input type="text" v-if="phase=='参加者登録'" v-model="submitPlayerName" rel="input" v-on:keyup.enter="entry">
+            <button v-if="phase=='参加者登録'" v-on:click="entry">追加</button>
             <table class="table table-bordered">
                 <tr v-for="(player, index) in players">
-                    <td>[[ index ]]</td>
+                    <td v-bind:class={active:player.isGM}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-show="player.isGM && !gmChanging" v-on:click="changeGM"
-                            :disabled="isGMDisable(index)">GM</button>
-                        <button v-show="gmChanging" v-on:click="submitGM(index)">
-                            GM</button>
-                    </td>
-                    <td>
-                        <button v-bind:class={active:player.isActive} v-on:click="submitUser(index)"
-                            :disabled="isBtnDisable(index)">
-                            参加 </button>
-                    </td>
-                </tr>
-            </table>
-            <button v-if="IamGM" v-on:click="changeMember">参加者変更</button>
-            <button v-if="IamGM" v-on:click="assignCast" :disabled="!ready">試合開始</button>
-        </template>
-
-        <template v-if="phase=='参加者登録'">
-            <input type="text" v-model="playername" rel="input" v-on:keyup.enter="entry">
-            <button v-on:click="entry">追加</button>
-            <table class="table table-bordered">
-                <tr v-for="(player, index) in players">
-                    <td>[[ index ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <td>
-                        <button v-on:click="cancel(index)">
+                        <button v-if="phase=='参加者登録'" v-on:click="cancel(index)" :disabled="player.isGM">
                             キャンセル</button>
-                    </td>
-                </tr>
-            </table>
-            <button v-on:click="submitMember">参加受付へ</button>
-        </template>
-
-        <template v-if="!waiting">
-            <table class="table table-bordered">
-                <tr v-for="(player, index) in players">
-                    <td>[[ index ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
-                    <td>
+                        <button v-if="phase=='参加受付中'" v-bind:class={active:player.isActive}
+                            v-on:click="submitUser(index)" :disabled="isBtnDisable(index)">
+                            参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
                             :disabled="isVoted || !player.isAlive">追放</button>
-                        <button v-else-if="phase=='深夜'" v-on:click="action(index)"
-                            :disabled="!Target(index)">対象</button>
+                        <button v-if="phase=='深夜'" v-on:click="action(index)" :disabled="!Target(index)">対象</button>
+                        <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
+                            GM</button>
                     </td>
                     <td>[[ casts[index] ]]</td>
                 </tr>
             </table>
-            <button v-if="IamGM && phase=='昼'" v-on:click="judge" :disabled="!isVoted">結果判定</button>
-            <button v-else-if="IamGM && phase=='夜'" v-on:click="toMidnight">夜のアクション</button>
-            <button v-if="IamGM && gameover" v-on:click="nextGame">次の試合</button>
-        </template>
 
+            <template v-if="IamGM">
+                <button v-if="phase=='参加者登録'" v-on:click=" submitMember">参加受付へ</button>
+                <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="!ready">試合開始</button>
+                <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
+                <button v-if="phase=='参加受付中'" v-on:click=" changeGM">GM交代</button>
+                <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!isVoted">結果判定</button>
+                <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
+                <button v-if=gameover v-on:click="nextGame">次の試合</button>
+            </template>
+        </template>
         <p> [[ message ]]</p>
     </div>
 
@@ -90,7 +66,7 @@
             el: '#app',
             data: {
                 players: [],
-                playername: "",
+                submitPlayerName: "",
                 casts: [],
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "人狼勝利", "市民勝利", "第三勝利"]
                 myIndex: "-1",
@@ -107,19 +83,13 @@
                     return false
                 },
                 ready: function () {
-                    return !this.players.map(player => player.isActive).includes(false)
-                },
-                waiting: function(){
-                    return ["参加受付中", "参加者登録"].includes(this.phase)
+                    return !this.players.map(p => p.isActive).includes(false)
                 },
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
-                playon: function () {
-                    return ["昼", "夜", "深夜"].includes(this.phase)
-                },
-                player: function () {
-                    return { 'name': this.playername, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
+                submitPlayer: function () {
+                    return { 'name': this.submitPlayerName, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
 
             },
@@ -196,10 +166,9 @@
                     socket.emit('next game')
                 },
 
-
                 entry: function () {
-                    this.players.push(this.player)
-                    this.playername = ""
+                    this.players.push(this.submitPlayer)
+                    this.submitPlayerName = ""
                 },
                 cancel: function (index) {
                     this.players.splice(index, 1)
@@ -221,7 +190,6 @@
                     if ("players" in data) { this.players = data.players }
                     if ("casts" in data) { this.casts = data.casts }
                     if ("target_indexes" in data) {
-                        console.log(data.target_indexes)
                         this.targetIndexes = data.target_indexes
                     }
                 })
