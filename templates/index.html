@@ -10,7 +10,7 @@
 <style>
     .active {
         color: #fff;
-        background-color: red;
+        background-color: rgba(7, 7, 7, 0.466);
     }
 </style>
 
@@ -32,7 +32,8 @@
                             参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
                             :disabled="isVoted || !player.isAlive">追放</button>
-                        <button v-if="phase=='深夜'" v-on:click="action(index)" :disabled="!Target(index)">対象</button>
+                        <button v-if="phase=='深夜'" v-on:click="action(index)"
+                            :disabled="!Target(index)" v-bind:class={active:index==replyIndex}>対象</button>
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
                             GM</button>
                     </td>
@@ -74,6 +75,7 @@
                 gmChanging: false,
                 isVoted: false,
                 targetIndexes: [], // 各役職の投票対象となるindex
+                replyIndex: ""
             },
             computed: {
                 IamGM: function () {
@@ -191,6 +193,9 @@
                     if ("casts" in data) { this.casts = data.casts }
                     if ("target_indexes" in data) {
                         this.targetIndexes = data.target_indexes
+                    }
+                    if ("reply_index" in data) {
+                        this.replyIndex = data.reply_index
                     }
                 })
             }
