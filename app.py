@@ -10,7 +10,7 @@ socketio = SocketIO(app)
 
 
 class Cast:
-
+    live_num = 0
     def __init__(self, ):
         self.id = ''
         self.name = '市民'
@@ -41,6 +41,7 @@ class Villager(Cast):
 
 class Werewolf(Cast):
     group = []
+    target_dict = {}
 
     def __init__(self):
         super(Werewolf, self).__init__()
@@ -49,34 +50,33 @@ class Werewolf(Cast):
         self.color = 'black'
         self.gm_message = '誰を襲いますか'
         self.target_candidates = []
-        self.target = ''
         Werewolf.group.append(self)
 
     def offer_target(self, casts):
         self.done_action = False
         self.target_candidates = []
         for terget, cast in enumerate(casts):
-            if cast.name == '人狼':
+            if cast in self.group:
                 continue
             if not cast.is_alive:
                 continue
             self.target_candidates.append(terget)
         return self.target_candidates
 
-    def action(self, target, casts):
-        self.target = target
-        for wolf in self.group:
-            if not wolf.is_alive:
-                continue
-            if wolf.target != self.target:
-                # todo wolf.groupにself.targetをemitする
-                break
-        # 人狼全員の標的が一致したら人狼全員のアクションを終了にする
-        else:
-            casts[target].is_targeted = True
-            for wolf in self.group:
-                wolf.done_action = True
-        return '了解'
+    # def action(self, my_index, target):
+    #     self.target_dict[my_index]=target
+    # for wolf in self.group:
+    #     if not wolf.is_alive:
+    #         continue
+    #     if wolf.target != self.target:
+    #         # todo wolf.groupにself.targetをemitする
+    #         break
+    # # 人狼全員の標的が一致したら人狼全員のアクションを終了にする
+    # else:
+    #     casts[target].is_targeted = True
+    #     for wolf in self.group:
+    #         wolf.done_action = True
+    # return '了解'
 
 
 class FortuneTeller(Cast):
@@ -100,11 +100,11 @@ class FortuneTeller(Cast):
             self.target_candidates.append(target)
         return self.target_candidates
 
-    def action(self, target, casts):
-        reply = '人狼' if casts[target].color == 'black' else '人狼ではない'
-        self.opencasts[target] = reply
-        self.done_action = True
-        return reply
+    # def action(self, target, casts):
+    #     reply = '人狼' if casts[target].color == 'black' else '人狼ではない'
+    #     self.opencasts[target] = reply
+    #     self.done_action = True
+    #     return reply
 
 
 # casts = [Werewolf(), Villager(),FortuneTeller(), Villager()]
@@ -137,7 +137,7 @@ class Village:
     def assign_cast(self):
         random.shuffle(self.casts)
         for id, cast in enumerate(self.casts):
-            cast.id=id
+            cast.id = id
         whites = []
         wolves = []
         for index, cast in enumerate(self.casts):
@@ -163,7 +163,8 @@ class Village:
 
     def expel(self, index):
         self.players[index]['isAlive'] = False
-        self.casts[index].is_alive = False
+        cast = self.casts[index]
+        cast.is_alive = False
 
     def judge(self):
         white_num = 0
@@ -190,7 +191,6 @@ class Village:
                 if not self.dead_ids:
                     message = '昨晩、襲撃された方は、いませんでした'
                 else:
-                    # p_names = 'さんと、'.join(self.players[self.dead_ids])
                     p_names = 'さんと、'.join([self.players[id]['name'] for id in self.dead_ids])
                     message = f'昨晩、{p_names}さんが襲撃されました'
                 self.dead_ids = []
@@ -198,6 +198,8 @@ class Village:
 
     def setplayers(self, players):
         self.players = players
+        self.player_reset()
+        self.cast_reset()
         for player in self.players:
             if player['isGM']:
                 return
@@ -233,7 +235,6 @@ class Village:
         for id, cast in enumerate(self.casts):
             # GJ出なければcastは襲撃
             if cast.is_alive:
-                # todo
                 if cast.is_targeted and not cast.is_protected:
                     cast.is_alive = False
                     self.dead_ids.append(id)
@@ -321,39 +322,71 @@ def judge():
 def response_action():
     vil.phase = '深夜'
     messages, indexes_set = vil.urge_casts_action()
-    for player, message, target_indexes in zip(vil.players, messages, indexes_set):
-        emit('message', {'msg': message, 'phase': vil.phase, 'target_indexes': target_indexes}, room=player['sid'])
+    for player, message, object_indexes in zip(vil.players, messages, indexes_set):
+        emit('message', {'msg': message, 'phase': vil.phase, 'object_indexes': object_indexes}, room=player['sid'])
 
 
 @socketio.on('do action')
 def action(target_index):
     my_index, player = vil.search_player(request.sid)
     cast = vil.casts[my_index]
-    if cast.name == '人狼':
-        # todo 人狼仲間にtargetをemit
-        for cast in cast.group:
-            sid = vil.players[cast.id]['sid']
-            reply_index = cast.target
-            emit('message', {'reply_index': reply_index}, room=sid)
+    if not cast.done_action:
+        if cast.name in ['人狼', ]:
+            cast.target_dict[my_index] = target_index
+            # 人狼仲間の襲撃先候補が一致しているか判定
+            live_num = 0    # 生存人狼数
+            for cast in cast.group:
+                if cast.is_alive:
+                    live_num +=1
+            wolves_agree = False
+            if len(cast.target_dict) == live_num:
+                wolves_agree = all(target == list(cast.target_dict.values())[0] for target in cast.target_dict.values())
+            # 人狼仲間の襲撃先候補が一致したら人狼全員のアクションを終了する
+            if wolves_agree:
+                vil.casts[target_index].is_targeted = True
+                cast.target_dict.clear()
+                for wolf in cast.group:
+                    sid = vil.players[wolf.id]['sid']
+                    wolf.done_action = True
+                    message = '襲撃先は' + vil.players[target_index]['name'] + 'さん'
+                    emit('message', {'msg': message, 'group_target_dict': wolf.target_dict}, room=sid)
+            else:
+                # 人狼仲間に襲撃先候補を伝える
+                for wolf in cast.group:
+                    sid = vil.players[wolf.id]['sid']
+                    emit('message', {'group_target_dict': wolf.target_dict}, room=sid)
 
-    if not cast.done_action:    # castが人狼以外はactionを1回だけ受け付ける
-        message = cast.action(target_index, vil.casts)
-        emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
+        elif cast.name in ['占い師', ]:
+            if vil.casts[target_index].name == '人狼':
+                comment = '人狼'
+            else:
+                comment = '人狼ではない'
+            cast.opencasts[target_index] = comment
+            message = vil.players[target_index]['name'] + 'さんは' + comment
+            emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
+            cast.done_action = True
 
-        # 全員のactionが完了した後の処理
-        if vil.done_all_actions():
-            vil.judge_casts_action()
-            message = vil.judge()
-            emit('message', {'players': vil.players, 'phase': vil.phase, 'msg': message}, broadcast=True)
+    # 全員のactionが完了した後の処理
+    if vil.done_all_actions():
+        vil.judge_casts_action()    # 全てのcastのアクションから全体の判定
+        vil.phase = '朝'
+        gm_sid = ''
+        for player in vil.players:
+            if player['isGM']:
+                gm_sid = player['sid']
+        message = '夜のアクションが終了しました'
+        emit('message', {'phase': vil.phase}, broadcast=True)
+        emit('message', {'msg': message}, room=gm_sid)
 
 
 @socketio.on('next game')
 def next_game():
     vil.player_reset()
     vil.cast_reset()
+
     vil.phase = '参加受付中'
     message = '参加受付中'
-    emit('message', {'players': vil.players, 'phase': vil.phase, 'msg': message}, broadcast=True)
+    emit('message', {'players': vil.players, 'phase': vil.phase,'casts': '', 'msg': message}, broadcast=True)
 
 
 @socketio.on('submit GM')
@@ -363,15 +396,15 @@ def give_gm(myindex, index):
     emit('message', {'players': vil.players}, broadcast=True)
 
 
-# @socketio.on('disconnect')
-# def disconnect():
-#     sid = request.sid
-#     # leave_room()
-#     for player in vil.players:
-#         if player['sid'] == sid:
-#             player['isActive'] = False
-#             message = player['name'] + ' さんは退出しました'
-#     emit('message', {'players': vil.players, 'msg': message}, broadcast=True)
+@socketio.on('disconnect')
+def disconnect():
+    sid = request.sid
+    # leave_room()
+    for player in vil.players:
+        if player['sid'] == sid:
+            vil.players.pop(player)
+            break
+    emit('message', {'players': vil.players}, broadcast=True)
 
 
 if __name__ == '__main__':
