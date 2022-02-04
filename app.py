@@ -27,7 +27,6 @@ class Cast:
         self.is_protected = False
         self.target = None
 
-
     def __str__(self):
         return self.name
 
@@ -111,12 +110,10 @@ class Knight(Cast):
         self.gm_message = '誰を護衛しますか'
         self.renga = False  # True: 連ガード有り
 
-
     def offer_target(self, casts):
         self.done_action = False
         self.target_candidates = []
         for target, cast in enumerate(casts):
-            print(f'id {target}は前の晩に護衛されている?{cast.is_protected}')
             if cast == self:
                 continue
             if not cast.is_alive:
@@ -126,7 +123,6 @@ class Knight(Cast):
                 cast.is_protected = False
                 continue
             self.target_candidates.append(target)
-        print(f'騎士の護衛先候補は{self.target_candidates}')
         return self.target_candidates
 
     def reset_cast(self):
@@ -255,7 +251,7 @@ class Village:
 
     def done_all_actions(self):
         for cast in self.casts:
-            if not cast.done_action:
+            if cast.is_alive and not cast.done_action:
                 return False
         return True
 
@@ -367,7 +363,10 @@ def action(target_index):
                     live_num += 1
             wolves_agree = False
             if len(cast.target_dict) == live_num:
-                wolves_agree = all(target == list(cast.target_dict.values())[0] for target in cast.target_dict.values())
+                if len(set(cast.target_dict.values())) == 1:
+                    wolves_agree = True
+                else:
+                    wolves_agree = False
             # 人狼仲間の襲撃先候補が一致したら人狼全員のアクションを終了する
             if wolves_agree:
                 vil.casts[target_index].is_targeted = True
@@ -397,7 +396,6 @@ def action(target_index):
             message = vil.players[target_index]['name'] + 'を護衛します'
             cast.done_action = True
             emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
-
 
         # 全員のactionが完了した後の処理
         if vil.done_all_actions():
