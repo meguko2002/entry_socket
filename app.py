@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
 from datetime import timedelta  # 時間情報を用いるため
+import time
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
@@ -25,6 +26,7 @@ class Cast:
         self.is_targeted = False
         self.is_protected = False
         self.target = None
+
 
     def __str__(self):
         return self.name
@@ -75,7 +77,7 @@ class Werewolf(Cast):
 
     def reset_cast(self):
         super().reset_cast()
-        self.target_dict = {}
+        self.target_dict.clear()
         self.group = []
 
 
@@ -107,20 +109,24 @@ class Knight(Cast):
         self.team = 'white'
         self.color = 'white'
         self.gm_message = '誰を護衛しますか'
-        self.renga = False  # True: レンガ有り
-        self.pre_guarded = ''  # 前の晩に護衛したcast
+        self.renga = False  # True: 連ガード有り
+
 
     def offer_target(self, casts):
         self.done_action = False
         self.target_candidates = []
         for target, cast in enumerate(casts):
+            print(f'id {target}は前の晩に護衛されている?{cast.is_protected}')
             if cast == self:
                 continue
             if not cast.is_alive:
                 continue
-            if cast == self.pre_guarded:
+            # 連ガード無しの処理
+            if not self.renga and cast.is_protected:
+                cast.is_protected = False
                 continue
             self.target_candidates.append(target)
+        print(f'騎士の護衛先候補は{self.target_candidates}')
         return self.target_candidates
 
     def reset_cast(self):
@@ -128,7 +134,7 @@ class Knight(Cast):
         self.pre_guarded = ''
 
 
-# casts = [Werewolf(), Villager(),FortuneTeller(), Villager()]
+# casts = [Werewolf(), Villager(),Knight(),  Villager()]
 casts = [Werewolf(), Werewolf(), FortuneTeller(), Knight(), Villager(), Villager(), Villager()]
 players = [{'name': '浩司', 'isActive': False, 'isAlive': True, 'isGM': True},
            {'name': '恵', 'isActive': False, 'isAlive': True, 'isGM': False},
@@ -262,7 +268,6 @@ class Village:
                     cast.is_alive = False
                     self.dead_ids.append(id)
             cast.is_targeted = False
-            cast.is_protected = False
 
         for id in self.dead_ids:
             self.players[id]['isAlive'] = False
@@ -377,7 +382,6 @@ def action(target_index):
                 for wolf in cast.group:
                     sid = vil.players[wolf.id]['sid']
                     emit('message', {'group_target_dict': wolf.target_dict}, room=sid)
-
         elif cast.name in ['占い師', ]:
             if vil.casts[target_index].name == '人狼':
                 comment = '人狼'
@@ -385,30 +389,27 @@ def action(target_index):
                 comment = '人狼ではない'
             cast.opencasts[target_index] = comment
             message = vil.players[target_index]['name'] + 'は' + comment
-            emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
             cast.done_action = True
+            emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
 
         elif cast.name in ['騎士']:
             vil.casts[target_index].is_protected = True
             message = vil.players[target_index]['name'] + 'を護衛します'
-            emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
-            # 連ガード無しの場合の処理
-            if not cast.renga:
-                cast.pre_guarded = vil.players[target_index]
             cast.done_action = True
+            emit('message', {'msg': message, 'casts': cast.opencasts}, room=player['sid'])
 
 
-    # 全員のactionが完了した後の処理
-    if vil.done_all_actions():
-        vil.judge_casts_action()  # 全てのcastのアクションから全体の判定
-        vil.phase = '朝'
-        gm_sid = ''
-        for player in vil.players:
-            if player['isGM']:
-                gm_sid = player['sid']
-        message = '夜のアクションが終了しました'
-        emit('message', {'phase': vil.phase}, broadcast=True)
-        emit('message', {'msg': message}, room=gm_sid)
+        # 全員のactionが完了した後の処理
+        if vil.done_all_actions():
+            vil.judge_casts_action()  # 全てのcastのアクションから全体の判定
+            vil.phase = '朝'
+            gm_sid = ''
+            for player in vil.players:
+                if player['isGM']:
+                    gm_sid = player['sid']
+            message = '夜のアクションが終了しました'
+            emit('message', {'phase': vil.phase}, broadcast=True)
+            emit('message', {'msg': message}, room=gm_sid)
 
 
 @socketio.on('next game')
