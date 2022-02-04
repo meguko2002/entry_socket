@@ -2,7 +2,6 @@ from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
 from datetime import timedelta  # 時間情報を用いるため
-import time
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
@@ -14,7 +13,6 @@ class Cast:
     live_num = 0
 
     def __init__(self, ):
-        self.id = ''
         self.name = '市民'
         self.team = 'white'
         self.color = 'white'
@@ -61,6 +59,7 @@ class Werewolf(Cast):
         self.team = 'black'
         self.color = 'black'
         self.gm_message = '誰を襲いますか'
+        self.id = ''  # 仲間の人狼と連絡を取るためにplayer_idと紐づけて使う
         Werewolf.group.append(self)
 
     def offer_target(self, casts):
@@ -77,7 +76,7 @@ class Werewolf(Cast):
     def reset_cast(self):
         super().reset_cast()
         self.target_dict.clear()
-        self.group = []
+        self.group.clear()
 
 
 class FortuneTeller(Cast):
@@ -131,7 +130,7 @@ class Knight(Cast):
 
 
 # casts = [Werewolf(), Villager(),Knight(),  Villager()]
-casts = [Werewolf(), Werewolf(), FortuneTeller(), Knight(), Villager(), Villager(), Villager()]
+# casts = [Werewolf(), Werewolf(), FortuneTeller(), Knight(), Villager(), Villager(), Villager()]
 players = [{'name': '浩司', 'isActive': False, 'isAlive': True, 'isGM': True},
            {'name': '恵', 'isActive': False, 'isAlive': True, 'isGM': False},
            {'name': '裕一', 'isActive': False, 'isAlive': True, 'isGM': False},
@@ -142,25 +141,40 @@ players = [{'name': '浩司', 'isActive': False, 'isAlive': True, 'isGM': True},
 
 
 class Village:
-    def __init__(self, players, casts):
+    def __init__(self, players):
         self.players = players
-        self.casts = casts
+        self.casts = []
         self.phase = '参加受付中'
         self.dead_ids = []
+        self.cast_layout = {'人狼': 2, '占い師': 1, '騎士': 1}
 
     # キャスト決め
-    def select_cast(self, casts: object):
-        self.casts = casts
-        # castの方が少なかった場合は市民を補充
-        while len(self.players) > len(self.casts):
+    def select_cast(self):
+        for castname, num in self.cast_layout.items():
+            if castname == '人狼':
+                for i in range(num):
+                    self.casts.append(Werewolf())
+            elif castname == '占い師':
+                for i in range(num):
+                    self.casts.append(FortuneTeller())
+            elif castname == '騎士':
+                for i in range(num):
+                    self.casts.append(Knight())
+        while len(self.casts) < len(self.players):
             self.casts.append(Villager())
-        # castの方が多かった場合は役職欠け
+
+        delta = len(self.casts) - len(self.players)
+        if delta > 0:
+            while True:
+                tmp_list = random.sample(self.casts, delta)
+                for cast in tmp_list:
+                    if cast.name == '人狼':
+                        break
+
 
     # キャストの割り当て
     def assign_cast(self):
         random.shuffle(self.casts)
-        for id, cast in enumerate(self.casts):
-            cast.id = id
         whites = []
         wolves = []
         for index, cast in enumerate(self.casts):
@@ -273,11 +287,10 @@ class Village:
             player['isAlive'] = True
 
     def cast_reset(self):
-        for cast in self.casts:
-            cast.reset_cast()
+        self.casts.clear()
 
 
-vil = Village(players, casts)
+vil = Village(players)
 
 
 @app.route('/')
@@ -319,7 +332,7 @@ def join(index, isActive):
 @socketio.on('assign cast')
 def assign_cast():
     vil.player_reset()
-    vil.select_cast(casts)
+    vil.select_cast()
     vil.assign_cast()
     vil.phase = '昼'
     for player, cast in zip(vil.players, vil.casts):
@@ -355,32 +368,41 @@ def action(target_index):
     cast = vil.casts[my_index]
     if not cast.done_action:
         if cast.name in ['人狼', ]:
+            print(f'人狼{player["name"]}さんからの襲撃リクエスト')
             cast.target_dict[my_index] = target_index
+            print(f'人狼同士のターゲット候補は{cast.target_dict}')
             # 人狼仲間の襲撃先候補が一致しているか判定
             live_num = 0  # 生存人狼数
             for cast in cast.group:
                 if cast.is_alive:
                     live_num += 1
             wolves_agree = False
+
             if len(cast.target_dict) == live_num:
                 if len(set(cast.target_dict.values())) == 1:
                     wolves_agree = True
                 else:
                     wolves_agree = False
+            print(f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{live_num}なので{wolves_agree}')
             # 人狼仲間の襲撃先候補が一致したら人狼全員のアクションを終了する
-            if wolves_agree:
-                vil.casts[target_index].is_targeted = True
-                cast.target_dict.clear()
-                for wolf in cast.group:
-                    sid = vil.players[wolf.id]['sid']
-                    wolf.done_action = True
-                    message = '襲撃先は' + vil.players[target_index]['name']
-                    emit('message', {'msg': message, 'group_target_dict': wolf.target_dict}, room=sid)
-            else:
-                # 人狼仲間に襲撃先候補を伝える
-                for wolf in cast.group:
-                    sid = vil.players[wolf.id]['sid']
-                    emit('message', {'group_target_dict': wolf.target_dict}, room=sid)
+            # if wolves_agree:
+            #     print('合意')
+            #     vil.casts[target_index].is_targeted = True
+            #     cast.target_dict.clear()
+            # else:
+            #     print('合意至らず')
+
+            for p, c in zip(vil.players, vil.casts):
+                if c.name == '人狼':
+                    if wolves_agree:
+                        vil.casts[target_index].is_targeted = True
+                        cast.target_dict.clear()
+                        c.done_action = True
+                        message = '襲撃先は' + vil.players[target_index]['name']
+                    else:
+                        message = '誰を襲いますか'
+                    emit('message', {'msg': message, 'group_target_dict': c.target_dict}, room=p['sid'])
+
         elif cast.name in ['占い師', ]:
             if vil.casts[target_index].name == '人狼':
                 comment = '人狼'
