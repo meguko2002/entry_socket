@@ -10,7 +10,6 @@ socketio = SocketIO(app)
 
 
 class Cast:
-    live_num = 0
 
     def __init__(self, ):
         self.name = '市民'
@@ -72,6 +71,13 @@ class Werewolf(Cast):
                 continue
             self.target_candidates.append(terget)
         return self.target_candidates
+
+    def alive_num(self):
+        num = 0
+        for c in self.group:
+            if c.is_alive:
+                num +=1
+        return num
 
     def reset_cast(self):
         super().reset_cast()
@@ -371,26 +377,14 @@ def action(target_index):
             print(f'人狼{player["name"]}さんからの襲撃リクエスト')
             cast.target_dict[my_index] = target_index
             print(f'人狼同士のターゲット候補は{cast.target_dict}')
-            # 人狼仲間の襲撃先候補が一致しているか判定
-            live_num = 0  # 生存人狼数
-            for cast in cast.group:
-                if cast.is_alive:
-                    live_num += 1
             wolves_agree = False
 
-            if len(cast.target_dict) == live_num:
+            if len(cast.target_dict) == cast.alive_num():
                 if len(set(cast.target_dict.values())) == 1:
                     wolves_agree = True
                 else:
                     wolves_agree = False
-            print(f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{live_num}なので{wolves_agree}')
-            # 人狼仲間の襲撃先候補が一致したら人狼全員のアクションを終了する
-            # if wolves_agree:
-            #     print('合意')
-            #     vil.casts[target_index].is_targeted = True
-            #     cast.target_dict.clear()
-            # else:
-            #     print('合意至らず')
+            print(f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{cast.alive_num()}なので{wolves_agree}')
 
             for p, c in zip(vil.players, vil.casts):
                 if c.name == '人狼':

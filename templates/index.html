@@ -38,8 +38,8 @@
                             GM</button>
                     </td>
                     <td>[[ casts[index] ]]</td>
-                    <td v-if="phase=='深夜' && myCast=='人狼' &&  index == groupTargetDict[index]">[[
-                        players[groupTargetDict.index].name ]]狼押し</td>
+                    <!-- <td v-if="phase=='深夜' && myCast=='人狼' &&  index == groupTargetDict[index]">[[
+                        players[groupTargetDict.index].name ]]推し</td> -->
                 </tr>
             </table>
         </template>
@@ -59,7 +59,7 @@
         <template v-if="myCast=='人狼'">
             <ul v-for="(target_id, wolf_id) in groupTargetDict">
                 <li>
-                    [[ players[wolf_id].name ]]狼は[[ players[target_id].name ]]さん押し
+                    [[ players[wolf_id].name ]]は[[ players[target_id].name ]]推し
                 </li>
             </ul>
         </template>
