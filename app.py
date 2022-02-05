@@ -30,17 +30,6 @@ class Cast:
     def offer_target(self, casts):
         return ''
 
-    def action(self):
-        return ''
-
-    def reset_cast(self):
-        self.done_action = False
-        self.opencasts = []
-        self.target_candidates = []
-        self.is_alive = True
-        self.is_targeted = False
-        self.is_protected = False
-
 
 class Villager(Cast):
     def __init__(self):
@@ -72,17 +61,12 @@ class Werewolf(Cast):
             self.target_candidates.append(terget)
         return self.target_candidates
 
-    def alive_num(self):
+    def survivors_num(self):
         num = 0
         for c in self.group:
             if c.is_alive:
-                num +=1
+                num += 1
         return num
-
-    def reset_cast(self):
-        super().reset_cast()
-        self.target_dict.clear()
-        self.group.clear()
 
 
 class FortuneTeller(Cast):
@@ -130,13 +114,7 @@ class Knight(Cast):
             self.target_candidates.append(target)
         return self.target_candidates
 
-    def reset_cast(self):
-        super().reset_cast()
-        self.pre_guarded = ''
 
-
-# casts = [Werewolf(), Villager(),Knight(),  Villager()]
-# casts = [Werewolf(), Werewolf(), FortuneTeller(), Knight(), Villager(), Villager(), Villager()]
 players = [{'name': '浩司', 'isActive': False, 'isAlive': True, 'isGM': True},
            {'name': '恵', 'isActive': False, 'isAlive': True, 'isGM': False},
            {'name': '裕一', 'isActive': False, 'isAlive': True, 'isGM': False},
@@ -158,6 +136,7 @@ class Village:
     def select_cast(self):
         for castname, num in self.cast_layout.items():
             if castname == '人狼':
+                Werewolf.group.clear()
                 for i in range(num):
                     self.casts.append(Werewolf())
             elif castname == '占い師':
@@ -306,7 +285,6 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    vil.player_reset()
     return jsonify(vil.players)
 
 
@@ -379,12 +357,12 @@ def action(target_index):
             print(f'人狼同士のターゲット候補は{cast.target_dict}')
             wolves_agree = False
 
-            if len(cast.target_dict) == cast.alive_num():
+            if len(cast.target_dict) == cast.survivors_num():
                 if len(set(cast.target_dict.values())) == 1:
                     wolves_agree = True
                 else:
                     wolves_agree = False
-            print(f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{cast.alive_num()}なので{wolves_agree}')
+            print(f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{cast.survivors_num()}なので{wolves_agree}')
 
             for p, c in zip(vil.players, vil.casts):
                 if c.name == '人狼':

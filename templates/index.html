@@ -38,8 +38,7 @@
                             GM</button>
                     </td>
                     <td>[[ casts[index] ]]</td>
-                    <!-- <td v-if="phase=='深夜' && myCast=='人狼' &&  index == groupTargetDict[index]">[[
-                        players[groupTargetDict.index].name ]]推し</td> -->
+                    <td v-if="phase=='深夜' && index in groupTargetDict"> は、[[ players[ groupTargetDict[index] ].name ]]推し</td>
                 </tr>
             </table>
         </template>
@@ -53,16 +52,10 @@
             <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
             <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
             <button v-if=gameover v-on:click="nextGame">次の試合</button>
+            <button v-on:click="resetGame">リセット</button>
         </template>
 
-        <p> [[ message ]]</p>
-        <template v-if="myCast=='人狼'">
-            <ul v-for="(target_id, wolf_id) in groupTargetDict">
-                <li>
-                    [[ players[wolf_id].name ]]は[[ players[target_id].name ]]推し
-                </li>
-            </ul>
-        </template>
+        <p> [[ message ]]</p>       
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -90,9 +83,6 @@
             },
             computed: {
 
-                myCast: function () {
-                    return this.casts[this.myIndex]
-                },
                 IamGM: function () {
                     if (this.myIndex != "-1" && this.players[this.myIndex].isGM) {
                         return true
@@ -108,7 +98,6 @@
                 submitPlayer: function () {
                     return { 'name': this.submitPlayerName, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
-
             },
             methods: {
                 Target: function (index) {
@@ -150,7 +139,6 @@
                     socket.emit('do action', index)
                 },
 
-
                 // GM用メソッド
                 changeMember: function () {
                     this.phase = "参加者登録"
@@ -181,7 +169,6 @@
                 nextGame: function () {
                     socket.emit('next game')
                 },
-
                 entry: function () {
                     this.players.push(this.submitPlayer)
                     this.submitPlayerName = ""
@@ -193,6 +180,11 @@
                     socket.emit('submit member', this.players)
                     this.phase = '参加受付中'
                 },
+                resetGame: function(){
+                    if(confirm('本当にリセットしますか')){
+                        this.nextGame()
+                    }
+                }
             },
             mounted: function () {
                 axios.get('/player_list')
@@ -216,5 +208,4 @@
         })
     </script>
 </body>
-
 </html>
