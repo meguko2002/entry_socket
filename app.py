@@ -156,7 +156,6 @@ class Village:
                     if cast.name == '人狼':
                         break
 
-
     # キャストの割り当て
     def assign_cast(self):
         random.shuffle(self.casts)
@@ -285,7 +284,7 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    return jsonify(vil.players)
+    return jsonify({'players': vil.players, 'phase': vil.phase, 'msg': '次の試合までお待ちください'})
 
 
 @socketio.on('submit member')
@@ -362,7 +361,8 @@ def action(target_index):
                     wolves_agree = True
                 else:
                     wolves_agree = False
-            print(f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{cast.survivors_num()}なので{wolves_agree}')
+            print(
+                f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{cast.survivors_num()}なので{wolves_agree}')
 
             for p, c in zip(vil.players, vil.casts):
                 if c.name == '人狼':
