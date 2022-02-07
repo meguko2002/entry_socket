@@ -130,11 +130,11 @@ class Village:
         self.casts = []
         self.phase = '参加受付中'
         self.dead_ids = []
-        self.cast_layout = {'人狼': 2, '占い師': 1, '騎士': 1}
+        self.cast_menu = {'人狼': 2, '占い師': 1, '騎士': 1}
 
     # キャスト決め
     def select_cast(self):
-        for castname, num in self.cast_layout.items():
+        for castname, num in self.cast_menu.items():
             if castname == '人狼':
                 Werewolf.group.clear()
                 for i in range(num):
@@ -279,6 +279,11 @@ vil = Village(players)
 
 @app.route('/')
 def index():
+    # playername = session['player']
+    # for player in vil.players:
+    #     if player['name'] == playername:
+
+
     return render_template('index.html')
 
 
@@ -292,12 +297,13 @@ def submit_member(players):
     vil.setplayers(players)
     emit('message', {'players': vil.players}, broadcast=True)
 
+users=[]
 
 @socketio.on('join')
 def join(index, isActive):
     player = vil.players[index]
     player['sid'] = request.sid
-
+    session['player'] = player['name']  # sessionにuser情報を保存
     # reloadしても前の情報が残るような処理を追加
     # https://qiita.com/eee-lin/items/4e9a2a308ca52b58fd1e
     #     user = request.form["nm"]  # ユーザー情報を保存する
@@ -421,13 +427,25 @@ def give_gm(myindex, index):
     emit('message', {'players': vil.players}, broadcast=True)
 
 
+@socketio.on('change cast')
+def change_cast(menu: object):    # menu : [{ name: "人狼", num: 2 },{ name: "占い師", num: 1 },,,]
+    for role in menu:
+        name = role['name']
+        vil.cast_menu[name] = role.get('num',0)
+    print(menu)
+    emit('message', {'menu': menu}, broadcast=True)
+
+
 @socketio.on('disconnect')
 def disconnect():
     sid = request.sid
     # leave_room()
-    for player in vil.players:
-        if player['sid'] == sid:
-            vil.players.pop(player)
+    for id,player in enumerate(vil.players):
+        if player.get('sid') == sid:
+            if player['isGM']:
+                next_id = (id+1) % len(vil.players)
+                vil.players[next_id]['isGM'] = True
+            vil.players.pop(id)
             break
     emit('message', {'players': vil.players}, broadcast=True)
 

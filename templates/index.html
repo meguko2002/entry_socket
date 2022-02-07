@@ -59,15 +59,15 @@
 
         <template id="casting">
             <table class="table table-bordered">
-                <tr v-for="role in menu">
+                <tr v-for="role in castMenu">
                     <td>[[ role.name ]]</td>
                     <td  v-if="role.name !='市民'">[[ role.num ]]</td>
                     <td v-else>[[ vil_num ]]</td>
                     <td>
-                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="role.num ++">+</button>
+                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countup(role)">+</button>
                     </td>
                     <td>
-                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="role.num --">-</button>
+                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countdown(role)">-</button>
                     </td>
                 </tr>
 
@@ -99,11 +99,11 @@
                 isVoted: false,
                 objectIndexes: [], // 各役職の投票対象となるindex
                 groupTargetDict: {},
-                menu: [
-                    { name: "人狼", num: 2 },
-                    { name: "占い師", num: 1 },
-                    { name: "騎士", num: 1 },
-                    { name: "市民", num: this.vil_num }
+                castMenu: [
+                    { 'name': "人狼", 'num': 2 },
+                    { 'name': "占い師", 'num': 1 },
+                    { 'name': "騎士", 'num': 1 },
+                    { 'name': "市民", 'num': this.vil_num }
                 ]
             },
             computed: {
@@ -123,7 +123,7 @@
                     return { 'name': this.submitPlayerName, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
                 vil_num: function () {
-                    return this.players.length - this.menu.slice(0,-1).reduce(function (sum, role,index) {
+                    return this.players.length - this.castMenu.slice(0,-1).reduce(function (sum, role) {
                         return sum + role.num
                     }, 0)
                 }
@@ -213,6 +213,15 @@
                     if (confirm('本当にリセットしますか')) {
                         this.nextGame()
                     }
+                },
+                countup: function(role){
+                    role.num ++
+                    console.log(role.num)
+                    socket.emit('change cast',this.castMenu)
+                },
+                countdown: function(role){
+                    role.num --
+                    socket.emit('change cast',this.castMenu)
                 }
             },
             mounted: function () {
@@ -233,6 +242,12 @@
                     }
                     if ("group_target_dict" in data) {
                         this.groupTargetDict = data.group_target_dict
+                    }
+                    if ("menu" in data) {   //市民は自動計算するために、castMenuを書き換える
+                        console.log( data.menu)
+                        this.castMenu = data.menu
+                        // console.log(this.castMenu)
+                        this.castMenu[-1]= { 'name': "市民", 'num': this.vil_num }
                     }
                 })
             }
