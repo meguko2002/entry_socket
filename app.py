@@ -1,11 +1,11 @@
+# -*- coding: utf-8 -*-
 from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
-from datetime import timedelta  # 時間情報を用いるため
+
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
-app.permanent_session_lifetime = timedelta(minutes=5)  # -> 5分 #(days=5) -> 5日保存
 socketio = SocketIO(app)
 
 
@@ -215,7 +215,7 @@ class Village:
                     message = '昨晩、襲撃された方は、いませんでした'
                 else:
                     p_names = 'と、'.join([self.players[id]['name'] for id in self.dead_ids])
-                    message = f'昨晩、{p_names}が襲撃されました'
+                    message = '昨晩、'+ p_names+'が襲撃されました'
                 self.dead_ids = []
                 return message
 
@@ -357,9 +357,9 @@ def action(target_index):
     cast = vil.casts[my_index]
     if not cast.done_action:
         if cast.name in ['人狼', ]:
-            print(f'人狼{player["name"]}さんからの襲撃リクエスト')
+            print('人狼'+ player["name"]+'さんからの襲撃リクエスト')
             cast.target_dict[my_index] = target_index
-            print(f'人狼同士のターゲット候補は{cast.target_dict}')
+            print('人狼同士のターゲット候補は'+cast.target_dict)
             wolves_agree = False
 
             if len(cast.target_dict) == cast.survivors_num():
@@ -367,8 +367,6 @@ def action(target_index):
                     wolves_agree = True
                 else:
                     wolves_agree = False
-            print(
-                f'dict:{cast.target_dict}、dict_num:{len(cast.target_dict)}, 生存者:{cast.survivors_num()}なので{wolves_agree}')
 
             for p, c in zip(vil.players, vil.casts):
                 if c.name == '人狼':
@@ -428,7 +426,7 @@ def give_gm(myindex, index):
 
 
 @socketio.on('change cast')
-def change_cast(menu: object):    # menu : [{ name: "人狼", num: 2 },{ name: "占い師", num: 1 },,,]
+def change_cast(menu):
     for role in menu:
         name = role['name']
         vil.cast_menu[name] = role.get('num',0)
@@ -451,4 +449,4 @@ def change_cast(menu: object):    # menu : [{ name: "人狼", num: 2 },{ name: "
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='192.168.2.29', port=5000, debug=True)
+    socketio.run(app, host='localhost', port=5000, debug=True)
