@@ -37,6 +37,7 @@
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
                             GM</button>
                     </td>
+                    <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ casts[index] ]]</td>
                     <td v-if="phase=='深夜' && index in groupTargetDict"> は、[[ players[ groupTargetDict[index] ].name ]]推し
                     </td>
