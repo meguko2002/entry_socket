@@ -27,7 +27,7 @@ class Cast:
     def __str__(self):
         return self.name
 
-    def offer_target(self, casts):
+    def offer_target(self):
         return ''
 
 
@@ -436,18 +436,18 @@ def change_cast(menu: object):    # menu : [{ name: "人狼", num: 2 },{ name: "
     emit('message', {'menu': menu}, broadcast=True)
 
 
-@socketio.on('disconnect')
-def disconnect():
-    sid = request.sid
-    # leave_room()
-    for id,player in enumerate(vil.players):
-        if player.get('sid') == sid:
-            if player['isGM']:
-                next_id = (id+1) % len(vil.players)
-                vil.players[next_id]['isGM'] = True
-            vil.players.pop(id)
-            break
-    emit('message', {'players': vil.players}, broadcast=True)
+# @socketio.on('disconnect')
+# def disconnect():
+#     sid = request.sid
+#     # leave_room()
+#     for id,player in enumerate(vil.players):
+#         if player.get('sid') == sid:
+#             if player['isGM']:
+#                 next_id = (id+1) % len(vil.players)
+#                 vil.players[next_id]['isGM'] = True
+#             vil.players.pop(id)
+#             break
+#     emit('message', {'players': vil.players}, broadcast=True)
 
 
 if __name__ == '__main__':
