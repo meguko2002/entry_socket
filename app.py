@@ -449,4 +449,5 @@ def change_cast(menu):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='localhost', port=5000, debug=True)
+    # socketio.run(app, debug=True)
+    socketio.run(app, host='192.168.2.29', port=5000, debug=True)
