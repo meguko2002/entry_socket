@@ -279,11 +279,6 @@ vil = Village(players)
 
 @app.route('/')
 def index():
-    # playername = session['player']
-    # for player in vil.players:
-    #     if player['name'] == playername:
-
-
     return render_template('index.html')
 
 
