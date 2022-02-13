@@ -429,7 +429,7 @@ def give_gm(myindex, index):
 def change_cast(menu):
     for role in menu:
         name = role['name']
-        vil.cast_menu[name] = role.get('num',0)
+        vil.cast_menu[name] = role.get('num', 0)
     print(menu)
     emit('message', {'menu': menu}, broadcast=True)
 
@@ -449,6 +449,4 @@ def change_cast(menu):
 
 
 if __name__ == '__main__':
-    # socketio.run(app, debug=True)
-    # socketio.run(app, host='192.168.2.29', port=5000, debug=True)
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, debug=True)

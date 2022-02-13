@@ -84,7 +84,7 @@
         crossorigin="anonymous"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
-        const socket = io('http://192.168.2.29:5000');
+        const socket = io();
         Vue.options.delimiters = ['[[', ']]'];
 
         const app = new Vue({
