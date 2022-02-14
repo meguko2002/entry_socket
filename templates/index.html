@@ -65,11 +65,12 @@
                     <td  v-if="role.name !='市民'">[[ role.num ]]</td>
                     <td v-else>[[ vil_num ]]</td>
                     <td>
-                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countup(role)">+</button>
-                    </td>
-                    <td>
                         <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countdown(role)">-</button>
                     </td>
+                    <td>
+                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countup(role)">+</button>
+                    </td>
+
                 </tr>
 
             </table>
@@ -101,9 +102,9 @@
                 objectIndexes: [], // 各役職の投票対象となるindex
                 groupTargetDict: {},
                 castMenu: [
-                    { 'name': "人狼", 'num': 2 },
-                    { 'name': "占い師", 'num': 1 },
-                    { 'name': "騎士", 'num': 1 },
+                    { 'name': "人狼", 'num': 1 },
+                    { 'name': "占い師", 'num': 0 },
+                    { 'name': "騎士", 'num': 0 },
                     { 'name': "市民", 'num': this.vil_num }
                 ]
             },
