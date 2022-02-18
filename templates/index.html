@@ -242,15 +242,6 @@
                 if (sessionStorage.isVoted) {
                     this.isVoted = sessionStorage.isVoted
                 }
-                if (sessionStorage.objectIndexes) {
-                    this.objectIndexes = sessionStorage.objectIndexes
-                }
-                if (sessionStorage.groupTargetDict) {
-                    this.groupTargetDict = sessionStorage.groupTargetDict
-                }
-                if (sessionStorage.castMenu) {
-                    this.castMenu = sessionStorage.castMenu
-                }
                 socket.on('message', (data) => {
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
@@ -267,6 +258,9 @@
                         this.castMenu = data.menu
                         this.castMenu[-1] = { 'name': "市民", 'num': this.vil_num }
                     }
+                    if ("id" in data){
+                        this.myIndex = data.id
+                    }
                 })
             },
             watch: {
@@ -276,15 +270,6 @@
                 isVoted(i) {
                     sessionStorage.isVoted = i
                 },
-                objectIndexes(j) {
-                    sessionStorage.objectIndexes = j
-                },
-                groupTargetDict(k) {
-                    sessionStorage.groupTargetDict = k
-                },
-                castMenu(l) {
-                    sessionStorage.castMenu = l
-                }
             }
         })
     </script>

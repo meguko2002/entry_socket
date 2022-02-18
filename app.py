@@ -176,12 +176,12 @@ class Village:
 
     def setplayers(self, players):
         self.players = players
-        self.player_reset()
-        self.cast_reset()
-        for player in self.players:
-            if player['isGM']:
-                return
-        self.players[0]['isGM'] = True
+    #     self.player_reset()
+    #     self.cast_reset()
+    #     for player in self.players:
+    #         if player['isGM']:
+    #             return
+    #     self.players[0]['isGM'] = True
 
     def search_player(self, sid):
         for index, player in enumerate(self.players):
@@ -231,8 +231,22 @@ def show_list():
 
 @socketio.on('submit member')
 def submit_member(players):
+
+    for new_id, new_player in enumerate(players):
+        for old_player in vil.players:
+            if new_player.get('sid','no') == old_player.get('sid','nokey'):
+                emit('message', {'id': new_id}, room=old_player['sid'])
+        # else :  # oldplayerでキャンセルされた人のsessionStorageを消す
+        #     emit('message', {'id': "undefined"}, room=old_player['sid'])
+
     vil.setplayers(players)
-    emit('message', {'players': vil.players}, broadcast=True)
+    # GMがキャンセルされたりはしないの？
+    #     for player in self.players:
+    #         if player['isGM']:
+    #             return
+    #     self.players[0]['isGM'] = True
+
+    emit('message', {'players': players}, broadcast=True)
 
 
 @socketio.on('join')
