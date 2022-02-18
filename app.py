@@ -237,20 +237,25 @@ def submit_member(players):
 
 @socketio.on('join')
 def join(index, isActive):
-    player = vil.players[index]
+    player = vil.players[int(index)]
     player['sid'] = request.sid
     session['player'] = player['name']  # sessionにuser情報を保存
-    # reloadしても前の情報が残るような処理を追加
-    # https://qiita.com/eee-lin/items/4e9a2a308ca52b58fd1e
-    #     user = request.form["nm"]  # ユーザー情報を保存する
-    #     session["user"] = user  # sessionにuser情報を保存
-    # room とか　join_room(room)いるか、動作を再確認
     room = session.get('room')
     join_room(room)
 
     player['isActive'] = isActive
     message = player['name'] + 'さん、ようこそ' if isActive else ''
     emit('message', {'msg': message}, room=player['sid'])
+    emit('message', {'players': vil.players}, broadcast=True)
+
+@socketio.on('rejoin')
+def rejoin(index):
+
+    player = vil.players[int(index)]
+    player['sid'] = request.sid
+    session['player'] = player['name']  # sessionにuser情報を保存
+    room = session.get('room')
+    join_room(room)
     emit('message', {'players': vil.players}, broadcast=True)
 
 
@@ -268,7 +273,7 @@ def assign_cast():
 
 @socketio.on('vote')
 def vote(index):
-    vil.expel(index)
+    vil.expel(int(index))
     emit('message', {'msg': vil.players[index]['name'] + 'は追放されました', 'players': vil.players},
          broadcast=True)
 
@@ -318,7 +323,7 @@ def action(target_index):
         cast.done_action = True
     elif not cast.done_action:
         if cast.name in ['人狼', ]:
-            cast.target_dict[my_index] = target_index
+            cast.target_dict[my_index] = int(target_index)
             wolves_agree = False
             if len(cast.target_dict) == cast.survivors_num():
                 if len(set(cast.target_dict.values())) == 1:
@@ -375,7 +380,7 @@ def next_game():
 @socketio.on('submit GM')
 def give_gm(myindex, index):
     vil.players[myindex]['isGM'] = False
-    vil.players[index]['isGM'] = True
+    vil.players[int(index)]['isGM'] = True
     emit('message', {'players': vil.players}, broadcast=True)
 
 
@@ -394,10 +399,11 @@ def disconnect():
     # leave_room()
     for id, player in enumerate(vil.players):
         if player.get('sid') == sid:
+            # player['isActive']=False
             if player['isGM']:
                 next_id = (id + 1) % len(vil.players)
                 vil.players[next_id]['isGM'] = True
-            vil.players.pop(id)
+            # vil.players.pop(id)
             break
     emit('message', {'players': vil.players}, broadcast=True)
 

@@ -30,6 +30,8 @@
                         <button v-if="phase=='参加受付中'" v-bind:class={active:player.isActive}
                             v-on:click="submitUser(index)" :disabled="isBtnDisable(index)">
                             参加 </button>
+
+
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
                             :disabled="isVoted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="act" v-on:click="action(index)"
@@ -62,7 +64,7 @@
             <table class="table table-bordered">
                 <tr v-for="role in castMenu">
                     <td>[[ role.name ]]</td>
-                    <td  v-if="role.name !='市民'">[[ role.num ]]</td>
+                    <td v-if="role.name !='市民'">[[ role.num ]]</td>
                     <td v-else>[[ vil_num ]]</td>
                     <td>
                         <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countdown(role)">-</button>
@@ -75,8 +77,6 @@
 
             </table>
         </template>
-
-
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -95,7 +95,7 @@
                 submitPlayerName: "",
                 casts: [],
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myIndex: "-1",
+                myIndex: "undefined",
                 message: "",
                 gmChanging: false,
                 isVoted: false,
@@ -106,11 +106,15 @@
                     { 'name': "占い師", 'num': 0 },
                     { 'name': "騎士", 'num': 0 },
                     { 'name': "市民", 'num': this.vil_num }
-                ]
+                ],
             },
             computed: {
                 IamGM: function () {
-                    if (this.myIndex != "-1" && this.players[this.myIndex].isGM) {
+                    if (this.myIndex == "undefined"){
+                        console.log('myIndex is not defined')
+                        return false
+                    }
+                    else if(this.players[this.myIndex].isGM){
                         return true
                     }
                     return false
@@ -125,7 +129,7 @@
                     return { 'name': this.submitPlayerName, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
                 vil_num: function () {
-                    return this.players.length - this.castMenu.slice(0,-1).reduce(function (sum, role) {
+                    return this.players.length - this.castMenu.slice(0, -1).reduce(function (sum, role) {
                         return sum + role.num
                     }, 0)
                 }
@@ -138,7 +142,7 @@
                 submitUser(index) {
                     if (this.players[index].isActive) {
                         this.players[index].isActive = false
-                        this.myIndex = "-1"
+                        this.myIndex = "undefined"
                     }
                     else {
                         this.players[index].isActive = true
@@ -147,21 +151,18 @@
                     socket.emit('join', index, this.players[index].isActive)
                 },
                 isBtnDisable: function (index) {
-                    if (this.myIndex == "-1") {         //自分未登録の場合
-                        if (this.players[index].isActive) {              //登録済みのボタンは押せない
-                            return true
-                        }
-                        return false                        //未登録ボタンは押せる
+                    if (this.myIndex == "undefined") {         //自分未登録の場合
+                        return this.players[index].isActive             //他の人が登録済みのボタンは押せない
                     }
                     else {                              //自分登録済みの場合
-                        if (index == this.myIndex) { //自分のボタンは押せる
+                        if (index == this.myIndex) {        //自分のボタンだけ押せる 
                             return false
                         }
-                        return true                         //自分のボタン以外は押せない
+                        return true
                     }
                 },
                 isGMDisable: function (index) {
-                    if (this.myIndex != "-1" && this.players[this.myIndex].isGM) {
+                    if (this.myIndex != "undefined" && this.players[this.myIndex].isGM) {
                         return false
                     }
                     return true
@@ -216,14 +217,14 @@
                         this.nextGame()
                     }
                 },
-                countup: function(role){
-                    role.num ++
+                countup: function (role) {
+                    role.num++
                     console.log(role.num)
-                    socket.emit('change cast',this.castMenu)
+                    socket.emit('change cast', this.castMenu)
                 },
-                countdown: function(role){
-                    role.num --
-                    socket.emit('change cast',this.castMenu)
+                countdown: function (role) {
+                    role.num--
+                    socket.emit('change cast', this.castMenu)
                 }
             },
             mounted: function () {
@@ -234,6 +235,13 @@
                         this.msg = response.data.msg
                     })
                     .catch(error => console.log(error))
+                // リロード対応。sessionStorageにmyIndexが残っている場合にemit
+                if (sessionStorage.myIndex) {
+                    this.myIndex = sessionStorage.myIndex
+                    if(this.myIndex !="undefined"){
+                        socket.emit('rejoin', this.myIndex)
+                    }           
+                }
                 socket.on('message', (data) => {
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
@@ -246,12 +254,26 @@
                         this.groupTargetDict = data.group_target_dict
                     }
                     if ("menu" in data) {   //市民は自動計算するために、castMenuを書き換える
-                        console.log( data.menu)
+                        console.log(data.menu)
                         this.castMenu = data.menu
-                        // console.log(this.castMenu)
-                        this.castMenu[-1]= { 'name': "市民", 'num': this.vil_num }
+                        this.castMenu[-1] = { 'name': "市民", 'num': this.vil_num }
                     }
                 })
+            },
+            watch: {
+                myIndex(newIndex) {
+                    sessionStorage.myIndex = newIndex;
+                },
+                IamGM: function () {
+                    if (this.myIndex == "undefined") {
+                        console.log('myIndex is not defined')
+                        return false
+                    }
+                    else if (this.players[this.myIndex].isGM) {
+                        return true
+                    }
+                    return false
+                },
             }
         })
     </script>
