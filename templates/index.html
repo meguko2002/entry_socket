@@ -18,10 +18,13 @@
     <div id="app">
         <h1>[[phase]]</h1>
         <template>
-            <input type="text" v-if="phase=='参加者登録'" v-model="submitPlayerName" rel="input" v-on:keyup.enter="entry">
-            <button v-if="phase=='参加者登録'" v-on:click="entry">追加</button>
-            <table class="table table-bordered">
-                <tr v-for="(player, index) in players">
+            <template v-if="phase=='参加者登録'">
+                <input type="text" v-model="submitPlayerName" rel="input" v-on:keyup.enter="entry">
+                <button v-on:click="entry">追加</button>
+            </template>
+
+            <table>
+                <tr v-for="(player, index) in players" v-bind:key="index">
                     <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
@@ -30,8 +33,6 @@
                         <button v-if="phase=='参加受付中'" v-bind:class={active:player.isActive}
                             v-on:click="submitUser(index)" :disabled="isBtnDisable(index)">
                             参加 </button>
-
-
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
                             :disabled="isVoted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="act" v-on:click="action(index)"
@@ -110,14 +111,10 @@
             },
             computed: {
                 IamGM: function () {
-                    if (this.myIndex == "undefined"){
-                        console.log('myIndex is not defined')
+                    if (this.myIndex == "undefined") {
                         return false
                     }
-                    else if(this.players[this.myIndex].isGM){
-                        return true
-                    }
-                    return false
+                    return this.players[this.myIndex].isGM
                 },
                 ready: function () {
                     return !this.players.map(p => p.isActive).includes(false)
@@ -238,9 +235,21 @@
                 // リロード対応。sessionStorageにmyIndexが残っている場合にemit
                 if (sessionStorage.myIndex) {
                     this.myIndex = sessionStorage.myIndex
-                    if(this.myIndex !="undefined"){
+                    if (this.myIndex != "undefined") {
                         socket.emit('rejoin', this.myIndex)
-                    }           
+                    }
+                }
+                if (sessionStorage.isVoted) {
+                    this.isVoted = sessionStorage.isVoted
+                }
+                if (sessionStorage.objectIndexes) {
+                    this.objectIndexes = sessionStorage.objectIndexes
+                }
+                if (sessionStorage.groupTargetDict) {
+                    this.groupTargetDict = sessionStorage.groupTargetDict
+                }
+                if (sessionStorage.castMenu) {
+                    this.castMenu = sessionStorage.castMenu
                 }
                 socket.on('message', (data) => {
                     if ("phase" in data) { this.phase = data.phase }
@@ -264,16 +273,18 @@
                 myIndex(newIndex) {
                     sessionStorage.myIndex = newIndex;
                 },
-                IamGM: function () {
-                    if (this.myIndex == "undefined") {
-                        console.log('myIndex is not defined')
-                        return false
-                    }
-                    else if (this.players[this.myIndex].isGM) {
-                        return true
-                    }
-                    return false
+                isVoted(i) {
+                    sessionStorage.isVoted = i
                 },
+                objectIndexes(j) {
+                    sessionStorage.objectIndexes = j
+                },
+                groupTargetDict(k) {
+                    sessionStorage.groupTargetDict = k
+                },
+                castMenu(l) {
+                    sessionStorage.castMenu = l
+                }
             }
         })
     </script>

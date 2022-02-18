@@ -250,13 +250,12 @@ def join(index, isActive):
 
 @socketio.on('rejoin')
 def rejoin(index):
-
     player = vil.players[int(index)]
     player['sid'] = request.sid
     session['player'] = player['name']  # sessionにuser情報を保存
     room = session.get('room')
     join_room(room)
-    emit('message', {'players': vil.players}, broadcast=True)
+    emit('message', {'players': vil.players, 'cast':vil.casts, 'phase':vil.phase}, broadcast=True)
 
 
 @socketio.on('assign cast')
@@ -393,19 +392,19 @@ def change_cast(menu):
     emit('message', {'menu': menu}, broadcast=True)
 
 
-@socketio.on('disconnect')
-def disconnect():
-    sid = request.sid
-    # leave_room()
-    for id, player in enumerate(vil.players):
-        if player.get('sid') == sid:
-            # player['isActive']=False
-            if player['isGM']:
-                next_id = (id + 1) % len(vil.players)
-                vil.players[next_id]['isGM'] = True
-            # vil.players.pop(id)
-            break
-    emit('message', {'players': vil.players}, broadcast=True)
+# @socketio.on('disconnect')
+# def disconnect():
+#     sid = request.sid
+#     # leave_room()
+#     for id, player in enumerate(vil.players):
+#         if player.get('sid') == sid:
+#             # player['isActive']=False
+#             # if player['isGM']:
+#             #     next_id = (id + 1) % len(vil.players)
+#             #     vil.players[next_id]['isGM'] = True
+#             # vil.players.pop(id)
+#             break
+#     emit('message', {'players': vil.players}, broadcast=True)
 
 
 if __name__ == '__main__':
