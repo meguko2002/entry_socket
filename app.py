@@ -73,10 +73,10 @@ class Knight(Cast):
         self.consecutive_guard = False  # True: 連ガード有り
 
 
-players = [{'name': '太郎', 'isActive': False, 'isAlive': True, 'isGM': True},
-           {'name': '花子', 'isActive': False, 'isAlive': True, 'isGM': False},
-           {'name': 'じろ', 'isActive': False, 'isAlive': True, 'isGM': False},
-           {'name': 'ポコ', 'isActive': False, 'isAlive': True, 'isGM': False}]
+players = [{'name': '太郎', 'isActive': False, 'isAlive': True, 'sid': '', 'isGM': True},
+           {'name': '花子', 'isActive': False, 'isAlive': True,  'sid': '',  'isGM': False},
+           {'name': 'じろ', 'isActive': False, 'isAlive': True,  'sid': '',  'isGM': False},
+           {'name': 'ポコ', 'isActive': False, 'isAlive': True,  'sid': '',  'isGM': False}]
 
 
 class Village:
@@ -226,7 +226,7 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    return jsonify({'players': vil.players, 'phase': vil.phase, 'msg': '次の試合までお待ちください'})
+    return jsonify({'players': vil.players, 'phase': vil.phase})
 
 
 @socketio.on('submit member')
@@ -250,27 +250,38 @@ def submit_member(players):
 
 
 @socketio.on('join')
-def join(index, isActive):
+def join(index):
     player = vil.players[int(index)]
     player['sid'] = request.sid
-    session['player'] = player['name']  # sessionにuser情報を保存
-    room = session.get('room')
-    join_room(room)
+    # session['player'] = player['name']  # sessionにuser情報を保存
+    # room = session.get('room')
+    # join_room(room)
 
-    player['isActive'] = isActive
-    message = player['name'] + 'さん、ようこそ' if isActive else ''
+    # player['isActive'] = isActive
+    message = player['name'] + 'さん、ようこそ'
     emit('message', {'msg': message}, room=player['sid'])
     emit('message', {'players': vil.players}, broadcast=True)
 
-@socketio.on('rejoin')
-def rejoin(index):
-    player = vil.players[int(index)]
-    player['sid'] = request.sid
-    session['player'] = player['name']  # sessionにuser情報を保存
-    room = session.get('room')
-    join_room(room)
-    emit('message', {'players': vil.players, 'cast':vil.casts, 'phase':vil.phase}, broadcast=True)
 
+# リロード対応
+@socketio.on('reload')
+def rejoin(old_sid):
+    new_sid = request.sid
+    for player in vil.players:
+        if player['sid'] == old_sid:
+            player['sid'] = new_sid
+        break
+    emit('message', {'players': vil.players, 'casts':vil.casts}, room=player['sid'])
+
+
+# 参加ボタンを2度押し、ゲーム参加をキャンセルする
+@socketio.on('decline')
+def decline():
+    sid = request.sid
+    for player in vil.players:
+        if player['sid'] == sid:
+            player['sid'] = ''
+    emit('message', {'players': vil.players}, broadcast=True)
 
 @socketio.on('assign cast')
 def assign_cast():
@@ -406,19 +417,19 @@ def change_cast(menu):
     emit('message', {'menu': menu}, broadcast=True)
 
 
-# @socketio.on('disconnect')
-# def disconnect():
-#     sid = request.sid
-#     # leave_room()
-#     for id, player in enumerate(vil.players):
-#         if player.get('sid') == sid:
-#             # player['isActive']=False
-#             # if player['isGM']:
-#             #     next_id = (id + 1) % len(vil.players)
-#             #     vil.players[next_id]['isGM'] = True
-#             # vil.players.pop(id)
-#             break
-#     emit('message', {'players': vil.players}, broadcast=True)
+@socketio.on('disconnect')
+def disconnect():
+    sid = request.sid
+    # leave_room()
+    for id, player in enumerate(vil.players):
+        if player.get('sid') == sid:
+            player['sid'] = ''
+            if player['isGM']:
+                next_id = (id + 1) % len(vil.players)
+                vil.players[next_id]['isGM'] = True
+
+            break
+    emit('message', {'players': vil.players}, broadcast=True)
 
 
 if __name__ == '__main__':

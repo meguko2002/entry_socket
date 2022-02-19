@@ -18,7 +18,7 @@
     <div id="app">
         <h1>[[phase]]</h1>
         <template>
-            <template v-if="phase=='参加者登録'">
+            <template v-if="IamGM && phase=='参加者登録'">
                 <input type="text" v-model="submitPlayerName" rel="input" v-on:keyup.enter="entry">
                 <button v-on:click="entry">追加</button>
             </template>
@@ -28,9 +28,9 @@
                     <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-if="phase=='参加者登録'" v-on:click="cancel(index)" :disabled="player.isGM"
-                            v-bind:class={active:player.isActive}>キャンセル</button>
-                        <button v-if="phase=='参加受付中'" v-bind:class={active:player.isActive}
+                        <button v-if="IamGM && phase=='参加者登録'" v-on:click="cancel(index)" :disabled="player.isGM"
+                            v-bind:class={active:playerActive(index)}>キャンセル</button>
+                        <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(index)}
                             v-on:click="submitUser(index)" :disabled="isBtnDisable(index)">
                             参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
@@ -73,9 +73,7 @@
                     <td>
                         <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countup(role)">+</button>
                     </td>
-
                 </tr>
-
             </table>
         </template>
     </div>
@@ -96,7 +94,7 @@
                 submitPlayerName: "",
                 casts: [],
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myIndex: "undefined",
+                myIndex: "-1",
                 message: "",
                 gmChanging: false,
                 isVoted: false,
@@ -111,58 +109,80 @@
             },
             computed: {
                 IamGM: function () {
-                    if (this.myIndex == "undefined") {
+                    if (this.myIndex == "-1") {
                         return false
                     }
                     return this.players[this.myIndex].isGM
                 },
+                playerActive: function () {
+                    return function (index) {
+                        return this.players[index].sid != ''
+                    }
+                },
+                IamActive:function(){
+                    return this.mysid!=''
+                },
+                mysid:function(){
+                    if(this.myIndex=='-1'){
+                        return ''
+                    }
+                    return this.players[this.myIndex].sid
+                },
                 ready: function () {
-                    return !this.players.map(p => p.isActive).includes(false)
+                    return !this.players.map(player => player.sid != '').includes(false)
                 },
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
                 submitPlayer: function () {
-                    return { 'name': this.submitPlayerName, 'isActive': false, 'sid': '', 'isAlive': true, 'isGM': false }
+                    return { 'name': this.submitPlayerName, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
                 vil_num: function () {
                     return this.players.length - this.castMenu.slice(0, -1).reduce(function (sum, role) {
                         return sum + role.num
                     }, 0)
-                }
+                },
+                Target: function () {
+                    return function (index) {
+                        return this.objectIndexes.includes(index)
+                    }
+                },
+                isBtnDisable: function () {
+                    return function (index) {
+                        if (this.IamActive) {  //自分登録済みの場合
+                            return index != this.myIndex        //自分のボタンだけ押せる 
+                        }
+                        else {                                     //自分未登録の場合
+                            return this.playerActive(index)           //他の人が登録済みのボタンは押せない
+                        }
+                    }
+                },
             },
             methods: {
-                Target: function (index) {
-                    if (this.objectIndexes.includes(index)) { return true }
-                    else { return false }
-                },
                 submitUser(index) {
-                    if (this.players[index].isActive) {
-                        this.players[index].isActive = false
-                        this.myIndex = "undefined"
-                    }
-                    else {
-                        this.players[index].isActive = true
+                    if(!this.IamActive){
                         this.myIndex = index
+                        sessionStorage.myIndex = this.myIndex
+                        socket.emit('join', index)
                     }
-                    socket.emit('join', index, this.players[index].isActive)
+                    else{
+                        this.myIndex='-1'
+                        sessionStorage.myIndex='-1'
+                        sessionStorage.mysid=''
+                        socket.emit('decline')
+                    }
+                    // if (this.players[index].isActive) {
+                    //     this.players[index].isActive = false
+                    //     this.myIndex = "undefined"
+                    // }
+                    // else {
+                    //     this.players[index].isActive = true
+                    //     this.myIndex = index
+                    // }
+
                 },
-                isBtnDisable: function (index) {
-                    if (this.myIndex == "undefined") {         //自分未登録の場合
-                        return this.players[index].isActive             //他の人が登録済みのボタンは押せない
-                    }
-                    else {                              //自分登録済みの場合
-                        if (index == this.myIndex) {        //自分のボタンだけ押せる 
-                            return false
-                        }
-                        return true
-                    }
-                },
-                isGMDisable: function (index) {
-                    if (this.myIndex != "undefined" && this.players[this.myIndex].isGM) {
-                        return false
-                    }
-                    return true
+                cancelUser(index){
+
                 },
                 action: function (index) {
                     socket.emit('do action', index)
@@ -228,19 +248,13 @@
                 axios.get('/player_list')
                     .then(response => {
                         this.players = response.data.players
-                        this.phase = response.data.phase
-                        this.msg = response.data.msg
+                        this.phase = response.data.phase                      
                     })
                     .catch(error => console.log(error))
-                // リロード対応。sessionStorageにmyIndexが残っている場合にemit
-                if (sessionStorage.myIndex) {
+                // リロード対応。sessionStorageにmysidが残っている場合にemit
+                if (sessionStorage.mysid) {
                     this.myIndex = sessionStorage.myIndex
-                    if (this.myIndex != "undefined") {
-                        socket.emit('rejoin', this.myIndex)
-                    }
-                }
-                if (sessionStorage.isVoted) {
-                    this.isVoted = sessionStorage.isVoted
+                    socket.emit('reload', sessionStorage.mysid)
                 }
                 socket.on('message', (data) => {
                     if ("phase" in data) { this.phase = data.phase }
@@ -258,19 +272,13 @@
                         this.castMenu = data.menu
                         this.castMenu[-1] = { 'name': "市民", 'num': this.vil_num }
                     }
-                    if ("id" in data){
-                        this.myIndex = data.id
-                    }
                 })
             },
-            watch: {
-                myIndex(newIndex) {
-                    sessionStorage.myIndex = newIndex;
-                },
-                isVoted(i) {
-                    sessionStorage.isVoted = i
-                },
-            }
+            // watch: {
+            //     myIndex(newIndex) {
+            //         sessionStorage.myIndex = newIndex;
+            //     },
+            // }
         })
     </script>
 </body>
