@@ -259,7 +259,7 @@ def join(index):
 
     # player['isActive'] = isActive
     message = player['name'] + 'さん、ようこそ'
-    emit('message', {'msg': message}, room=player['sid'])
+    emit('message', {'msg': message, 'mysid': player['sid']}, room=player['sid'])
     emit('message', {'players': vil.players}, broadcast=True)
 
 
@@ -270,8 +270,9 @@ def rejoin(old_sid):
     for player in vil.players:
         if player['sid'] == old_sid:
             player['sid'] = new_sid
-        break
-    emit('message', {'players': vil.players, 'casts':vil.casts}, room=player['sid'])
+            emit('message', {'players': vil.players, 'casts':vil.casts,'mysid':new_sid}, room=player['sid'])
+    else:
+        print('合致するsidなし')
 
 
 # 参加ボタンを2度押し、ゲーム参加をキャンセルする
@@ -420,16 +421,12 @@ def change_cast(menu):
 @socketio.on('disconnect')
 def disconnect():
     sid = request.sid
-    # leave_room()
+    leave_room()
     for id, player in enumerate(vil.players):
         if player.get('sid') == sid:
             player['sid'] = ''
-            if player['isGM']:
-                next_id = (id + 1) % len(vil.players)
-                vil.players[next_id]['isGM'] = True
-
             break
-    emit('message', {'players': vil.players}, broadcast=True)
+    # emit('message', {'players': vil.players}, broadcast=True)
 
 
 if __name__ == '__main__':
