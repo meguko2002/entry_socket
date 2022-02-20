@@ -73,10 +73,10 @@ class Knight(Cast):
         self.consecutive_guard = False  # True: 連ガード有り
 
 
-players = [{'name': '太郎', 'isActive': False, 'isAlive': True, 'sid': '', 'isGM': True},
-           {'name': '花子', 'isActive': False, 'isAlive': True,  'sid': '',  'isGM': False},
-           {'name': 'じろ', 'isActive': False, 'isAlive': True,  'sid': '',  'isGM': False},
-           {'name': 'ポコ', 'isActive': False, 'isAlive': True,  'sid': '',  'isGM': False}]
+players = [{'name': '太郎', 'isAlive': True, 'sid': '', 'isGM': True},
+           {'name': '花子', 'isAlive': True, 'sid': '', 'isGM': False},
+           {'name': 'じろ', 'isAlive': True, 'sid': '', 'isGM': False},
+           {'name': 'ポコ', 'isAlive': True, 'sid': '', 'isGM': False}]
 
 
 class Village:
@@ -176,6 +176,7 @@ class Village:
 
     def setplayers(self, players):
         self.players = players
+
     #     self.player_reset()
     #     self.cast_reset()
     #     for player in self.players:
@@ -231,20 +232,14 @@ def show_list():
 
 @socketio.on('submit member')
 def submit_member(players):
-
-    for new_id, new_player in enumerate(players):
-        for old_player in vil.players:
-            if new_player.get('sid','no') == old_player.get('sid','nokey'):
-                emit('message', {'id': new_id}, room=old_player['sid'])
-        # else :  # oldplayerでキャンセルされた人のsessionStorageを消す
-        #     emit('message', {'id': "undefined"}, room=old_player['sid'])
-
+    # 参加者キャンセルのため、各参加者のIDを振りなおす
     vil.setplayers(players)
-    # GMがキャンセルされたりはしないの？
-    #     for player in self.players:
-    #         if player['isGM']:
-    #             return
-    #     self.players[0]['isGM'] = True
+    for id, player in enumerate(vil.players):
+        emit('message', {'myIndex': id}, room=player['sid'])
+    # for new_id, new_player in enumerate(players):
+    #     for old_player in vil.players:
+    #         if new_player.get('sid', 'no') == old_player.get('sid', 'nokey'):
+    #             emit('message', {'myIndex': new_id}, room=old_player['sid'])
 
     emit('message', {'players': players}, broadcast=True)
 
@@ -257,7 +252,6 @@ def join(index):
     # room = session.get('room')
     # join_room(room)
 
-    # player['isActive'] = isActive
     message = player['name'] + 'さん、ようこそ'
     emit('message', {'msg': message, 'mysid': player['sid']}, room=player['sid'])
     emit('message', {'players': vil.players}, broadcast=True)
@@ -270,7 +264,7 @@ def rejoin(old_sid):
     for player in vil.players:
         if player['sid'] == old_sid:
             player['sid'] = new_sid
-            emit('message', {'players': vil.players, 'casts':vil.casts,'mysid':new_sid}, room=player['sid'])
+            emit('message', {'players': vil.players, 'casts': vil.casts, 'mysid': new_sid}, room=player['sid'])
             break
     else:
         print('合致するsidなし')
@@ -284,6 +278,7 @@ def decline():
         if player['sid'] == sid:
             player['sid'] = ''
     emit('message', {'players': vil.players}, broadcast=True)
+
 
 @socketio.on('assign cast')
 def assign_cast():

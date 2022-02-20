@@ -245,6 +245,10 @@
                         this.mysid =  data.mysid
                         sessionStorage.mysid = data.mysid
                         }
+                    if("myIndex" in data){
+                        this.myIndex=data.myIndex
+                        sessionStorage.myIndex = data.myIndex
+                    }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
@@ -262,11 +266,6 @@
                     }
                 })
             },
-            // watch: {
-            //     myIndex(newIndex) {
-            //         sessionStorage.myIndex = newIndex;
-            //     },
-            // }
         })
     </script>
 </body>
