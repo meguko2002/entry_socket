@@ -271,6 +271,7 @@ def rejoin(old_sid):
         if player['sid'] == old_sid:
             player['sid'] = new_sid
             emit('message', {'players': vil.players, 'casts':vil.casts,'mysid':new_sid}, room=player['sid'])
+            break
     else:
         print('合致するsidなし')
 
