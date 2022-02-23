@@ -18,18 +18,15 @@
     <div id="app">
         <h1>[[phase]]</h1>
         <template>
-            <template v-if="IamGM && phase=='参加者登録'">
-                <input type="text" v-model="submitPlayerName" rel="input" v-on:keyup.enter="entry">
-                <button v-on:click="entry">追加</button>
-            </template>
-
             <table>
                 <tr v-for="(player, index) in players" v-bind:key="index">
                     <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-if="IamGM && phase=='参加者登録'" v-on:click="cancel(index)" :disabled="player.isGM"
-                            v-bind:class={active:playerActive(index)}>キャンセル</button>
+                        <input type="checkbox" :id="'rm-'+index" v-if="IamGM && phase=='参加者登録'":disabled="player.isGM"
+                            :value="player.name" v-model="player.isRemoved" ></input>
+                        <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
+
                         <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(index)}
                             v-on:click="submitOrNot(index)" :disabled="isBtnDisable(index)">
                             参加 </button>
@@ -46,9 +43,16 @@
                     </td>
                 </tr>
             </table>
+            <template v-if="IamGM && phase=='参加者登録'">
+                <input type="text" v-model="playerName" rel="input" v-on:keyup.enter="addMember" placeholder="お名前">
+                <button v-on:click="addMember">追加</button>
+
+            </template>
+
         </template>
 
         <template v-if="IamGM">
+
             <button v-if="phase=='参加者登録'" v-on:click=" submitMember">参加受付へ</button>
             <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="!ready">試合開始</button>
             <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
@@ -91,10 +95,10 @@
             el: '#app',
             data: {
                 players: [],
-                submitPlayerName: "",
+                playerName:"",
                 casts: [],
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myIndex: "-1",
+                myName:'',
                 message: "",
                 gmChanging: false,
                 isVoted: false,
@@ -106,11 +110,14 @@
                     { 'name': "騎士", 'num': 0 },
                     { 'name': "市民", 'num': this.vil_num }
                 ],
-                mysid:'',
+                // mysid:'',
             },
             computed: {
+                myIndex:function(){
+                    return this.players.findIndex(p=>p.name==this.myName)
+                },
                 gmIndex:function(){
-                    return this.players.findIndex((p)=>p.isGM==true)
+                    return this.players.findIndex(p=>p.isGM)
                 },
                 IamGM:function(){
                     return this.myIndex==this.gmIndex
@@ -121,16 +128,13 @@
                     }
                 },
                 IamActive:function(){
-                    return this.mysid!=''
+                    return !this.myName==''
                 },
                 ready: function () {
                     return !this.players.map(player => player.sid != '').includes(false)
                 },
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
-                },
-                submitPlayer: function () {
-                    return { 'name': this.submitPlayerName, 'sid': '', 'isAlive': true, 'isGM': false }
                 },
                 vil_num: function () {
                     return this.players.length - this.castMenu.slice(0, -1).reduce(function (sum, role) {
@@ -155,17 +159,15 @@
             },
             methods: {
                 submitOrNot(index) {
-                    if(!this.IamActive){
-                        this.myIndex = index
-                        sessionStorage.myIndex = this.myIndex
-                        socket.emit('join', index)
+                    if(this.IamActive){
+                        this.myName=''
+                        sessionStorage.myName = ''
+                        socket.emit('decline')
                     }
                     else{
-                        this.myIndex='-1'
-                        this.mysid = ''
-                        sessionStorage.myIndex='-1'
-                        sessionStorage.mysid=''
-                        socket.emit('decline')
+                        this.myName = this.players[index].name
+                        sessionStorage.myName = this.myName
+                        socket.emit('join', index)                        
                     }
                 },
                 action: function (index) {
@@ -202,14 +204,12 @@
                 nextGame: function () {
                     socket.emit('next game')
                 },
-                entry: function () {
-                    this.players.push(this.submitPlayer)
-                    this.submitPlayerName = ""
-                },
-                cancel: function (index) {
-                    this.players.splice(index, 1)
+                addMember: function () {
+                    this.players.push({ 'name': this.playerName, 'sid': '', 'isAlive': true, 'isGM': false })
+                    this.playerName =""
                 },
                 submitMember: function () {
+                    // 参加を促す人の名前リストを再構成してサーバーに送る
                     socket.emit('submit member', this.players)
                     this.phase = '参加受付中'
                 },
@@ -236,19 +236,12 @@
                     })
                     .catch(error => console.log(error))
                 // リロード対応。sessionStorageにmysidが残っている場合にemit
-                if (sessionStorage.mysid) {
-                    this.myIndex = sessionStorage.myIndex
-                    socket.emit('reload', sessionStorage.mysid)
+                if (sessionStorage.myName) {
+
+                    this.myName=sessionStorage.myName
+                    socket.emit('reload', this.myName)
                 }
                 socket.on('message', (data) => {
-                    if("mysid" in data){
-                        this.mysid =  data.mysid
-                        sessionStorage.mysid = data.mysid
-                        }
-                    if("myIndex" in data){
-                        this.myIndex=data.myIndex
-                        sessionStorage.myIndex = data.myIndex
-                    }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }

@@ -233,15 +233,28 @@ def show_list():
 @socketio.on('submit member')
 def submit_member(players):
     # 参加者キャンセルのため、各参加者のIDを振りなおす
-    vil.setplayers(players)
-    for id, player in enumerate(vil.players):
-        emit('message', {'myIndex': id}, room=player['sid'])
+    new_players = []
+    id = 0
+    for player in players:
+        if player.get('isRemoved'):
+            continue
+        for pre_player in vil.players:
+            if pre_player['name'] == player['name']:
+                emit('message', {'myIndex': id}, room=pre_player['sid'])
+        new_players.append(player)
+        id += 1
+    vil.players = new_players
+    emit('message', {'players': vil.players}, broadcast=True)
+
+    # vil.setplayers(players)
+    # for id, player in enumerate(vil.players):
+    #     emit('message', {'myIndex': id}, room=player['sid'])
     # for new_id, new_player in enumerate(players):
     #     for old_player in vil.players:
     #         if new_player.get('sid', 'no') == old_player.get('sid', 'nokey'):
     #             emit('message', {'myIndex': new_id}, room=old_player['sid'])
 
-    emit('message', {'players': players}, broadcast=True)
+    # emit('message', {'players': players}, broadcast=True)
 
 
 @socketio.on('join')
@@ -259,12 +272,12 @@ def join(index):
 
 # リロード対応
 @socketio.on('reload')
-def rejoin(old_sid):
-    new_sid = request.sid
+def rejoin(name):
+    sid = request.sid
     for player in vil.players:
-        if player['sid'] == old_sid:
-            player['sid'] = new_sid
-            emit('message', {'players': vil.players, 'casts': vil.casts, 'mysid': new_sid}, room=player['sid'])
+        if player['name'] == name:
+            player['sid'] = sid
+            emit('message', {'players': vil.players, 'casts': vil.casts}, room=player['sid'])
             break
     else:
         print('合致するsidなし')
@@ -417,7 +430,7 @@ def change_cast(menu):
 @socketio.on('disconnect')
 def disconnect():
     sid = request.sid
-    leave_room()
+    # leave_room()
     for id, player in enumerate(vil.players):
         if player.get('sid') == sid:
             player['sid'] = ''
