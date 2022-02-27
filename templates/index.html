@@ -23,8 +23,8 @@
                     <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <input type="checkbox" :id="'rm-'+index" v-if="IamGM && phase=='参加者登録'":disabled="player.isGM"
-                            :value="player.name" v-model="player.isRemoved" ></input>
+                        <input type="checkbox" :id="'rm-'+index" v-if="IamGM && phase=='参加者登録'" :disabled="player.isGM"
+                            :value="player.name" v-model="player.isRemoved"></input>
                         <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
 
                         <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(index)}
@@ -68,15 +68,27 @@
         <template id="casting">
             <table class="table table-bordered">
                 <tr v-for="role in castMenu">
-                    <td>[[ role.name ]]</td>
-                    <td v-if="role.name !='市民'">[[ role.num ]]</td>
-                    <td v-else>[[ vil_num ]]</td>
+                    <!-- <td>[[ role.name ]]</td> -->
                     <td>
+                        <label :for="role.name">[[ role.name ]]</label>
+                    </td>
+                    <td v-if="role.name !='市民'">
+                        <input type="number" :id="role.name" min="0" max=player_num  v-model="role.num">
+                    </td>
+                    <td v-else>
+                        <input type="number" :id="role.name" v-model="vil_num" disabled="true">
+                    </td>
+                    <!-- <td v-else>
+                        <input type="number" :id="role.name" v-model="vil_num" disabled="true">
+                    </td> -->
+                    <!-- <td v-if="role.name !='市民'">[[ role.num ]]</td>
+                    <td v-else>[[ vil_num ]]</td> -->
+                    <!-- <td>
                         <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countdown(role)">-</button>
                     </td>
                     <td>
                         <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countup(role)">+</button>
-                    </td>
+                    </td> -->
                 </tr>
             </table>
         </template>
@@ -95,10 +107,10 @@
             el: '#app',
             data: {
                 players: [],
-                playerName:"",
+                playerName: "",
                 casts: [],
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myName:'',
+                myName: '',
                 message: "",
                 gmChanging: false,
                 isVoted: false,
@@ -110,25 +122,24 @@
                     { 'name': "騎士", 'num': 0 },
                     { 'name': "市民", 'num': this.vil_num }
                 ],
-                // mysid:'',
             },
             computed: {
-                myIndex:function(){
-                    return this.players.findIndex(p=>p.name==this.myName)
+                myIndex: function () {
+                    return this.players.findIndex(p => p.name == this.myName)
                 },
-                gmIndex:function(){
-                    return this.players.findIndex(p=>p.isGM)
+                gmIndex: function () {
+                    return this.players.findIndex(p => p.isGM)
                 },
-                IamGM:function(){
-                    return this.myIndex==this.gmIndex
+                IamGM: function () {
+                    return this.myIndex == this.gmIndex
                 },
                 playerActive: function () {
                     return function (index) {
                         return this.players[index].sid != ''
                     }
                 },
-                IamActive:function(){
-                    return !this.myName==''
+                IamActive: function () {
+                    return !this.myName == ''
                 },
                 ready: function () {
                     return !this.players.map(player => player.sid != '').includes(false)
@@ -137,8 +148,14 @@
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
                 vil_num: function () {
-                    return this.players.length - this.castMenu.slice(0, -1).reduce(function (sum, role) {
-                        return sum + role.num
+                    return this.player_num - this.castMenu.reduce(function (sum, role) {
+                        if(role.name == "市民"){
+                            return sum
+                        }
+                        else{
+                            return sum + Number(role.num)
+                        }
+                        
                     }, 0)
                 },
                 Target: function () {
@@ -156,18 +173,21 @@
                         }
                     }
                 },
+                player_num: function () {
+                    return this.players.length
+                },
             },
             methods: {
                 submitOrNot(index) {
-                    if(this.IamActive){
-                        this.myName=''
+                    if (this.IamActive) {
+                        this.myName = ''
                         sessionStorage.myName = ''
                         socket.emit('decline')
                     }
-                    else{
+                    else {
                         this.myName = this.players[index].name
                         sessionStorage.myName = this.myName
-                        socket.emit('join', index)                        
+                        socket.emit('join', index)
                     }
                 },
                 action: function (index) {
@@ -206,7 +226,7 @@
                 },
                 addMember: function () {
                     this.players.push({ 'name': this.playerName, 'sid': '', 'isAlive': true, 'isGM': false })
-                    this.playerName =""
+                    this.playerName = ""
                 },
                 submitMember: function () {
                     // 参加を促す人の名前リストを再構成してサーバーに送る
@@ -232,13 +252,13 @@
                 axios.get('/player_list')
                     .then(response => {
                         this.players = response.data.players
-                        this.phase = response.data.phase                      
+                        this.phase = response.data.phase
                     })
                     .catch(error => console.log(error))
                 // リロード対応。sessionStorageにmysidが残っている場合にemit
                 if (sessionStorage.myName) {
 
-                    this.myName=sessionStorage.myName
+                    this.myName = sessionStorage.myName
                     socket.emit('reload', this.myName)
                 }
                 socket.on('message', (data) => {
