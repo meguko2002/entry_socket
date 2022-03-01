@@ -85,31 +85,36 @@ class Village:
         self.casts = []
         self.phase = '参加受付中'
         self.dead_ids = []
-        self.cast_menu = {'人狼': 1, '占い師': 0, '騎士': 0}
+        self.cast_menu = [
+            {'name': "人狼", 'num': 1},
+            {'name': "占い師", 'num': 0},
+            {'name': "騎士", 'num': 0},
+        ]
+
+    def calc_villager(self):
+        total_num = 0
+        for cast in self.cast_menu:
+            if cast['name'] == '市民':
+                self.cast_menu.remove(cast)
+            else:
+                total_num += int(cast['num'])
+        self.cast_menu.append({'name': '市民', 'num': len(self.players) - total_num})
 
     # キャスト決め
     def select_cast(self):
-        for castname, num in self.cast_menu.items():
-            if castname == '人狼':
+        for cast in self.cast_menu:
+            if cast['name'] == '人狼':
                 Werewolf.group.clear()
-                for i in range(num):
+                for i in range(cast['num']):
                     self.casts.append(Werewolf())
-            elif castname == '占い師':
-                for i in range(num):
+            elif cast['name'] == '占い師':
+                for i in range(cast['num']):
                     self.casts.append(FortuneTeller())
-            elif castname == '騎士':
-                for i in range(num):
+            elif cast['name'] == '騎士':
+                for i in range(cast['num']):
                     self.casts.append(Knight())
         while len(self.casts) < len(self.players):
             self.casts.append(Villager())
-
-        delta = len(self.casts) - len(self.players)
-        if delta > 0:
-            while True:
-                tmp_list = random.sample(self.casts, delta)
-                for cast in tmp_list:
-                    if cast.name == '人狼':
-                        break
 
     # キャストの割り当て
     def assign_cast(self):
@@ -177,13 +182,6 @@ class Village:
     def setplayers(self, players):
         self.players = players
 
-    #     self.player_reset()
-    #     self.cast_reset()
-    #     for player in self.players:
-    #         if player['isGM']:
-    #             return
-    #     self.players[0]['isGM'] = True
-
     def search_player(self, sid):
         for index, player in enumerate(self.players):
             if player['sid'] == sid:
@@ -227,7 +225,8 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    return jsonify({'players': vil.players, 'phase': vil.phase})
+    vil.calc_villager()
+    return jsonify({'players': vil.players, 'phase': vil.phase, 'castMenu': vil.cast_menu})
 
 
 @socketio.on('submit member')
@@ -246,24 +245,11 @@ def submit_member(players):
     vil.players = new_players
     emit('message', {'players': vil.players}, broadcast=True)
 
-    # vil.setplayers(players)
-    # for id, player in enumerate(vil.players):
-    #     emit('message', {'myIndex': id}, room=player['sid'])
-    # for new_id, new_player in enumerate(players):
-    #     for old_player in vil.players:
-    #         if new_player.get('sid', 'no') == old_player.get('sid', 'nokey'):
-    #             emit('message', {'myIndex': new_id}, room=old_player['sid'])
-
-    # emit('message', {'players': players}, broadcast=True)
-
 
 @socketio.on('join')
 def join(index):
     player = vil.players[int(index)]
     player['sid'] = request.sid
-    # session['player'] = player['name']  # sessionにuser情報を保存
-    # room = session.get('room')
-    # join_room(room)
 
     message = player['name'] + 'さん、ようこそ'
     emit('message', {'msg': message, 'mysid': player['sid']}, room=player['sid'])
@@ -420,11 +406,9 @@ def give_gm(myindex, index):
 
 @socketio.on('change cast')
 def change_cast(menu):
-    for role in menu:
-        name = role['name']
-        vil.cast_menu[name] = role.get('num', 0)
-    print(menu)
-    emit('message', {'menu': menu}, broadcast=True)
+    vil.cast_menu = menu
+    vil.calc_villager()
+    emit('message', {'castMenu': menu}, broadcast=True)
 
 
 @socketio.on('disconnect')
@@ -439,4 +423,4 @@ def disconnect():
 
 
 if __name__ == '__main__':
-    socketio.run(app,host='192.168.2.29', debug=True)
+    socketio.run(app, host='192.168.2.29', debug=True)

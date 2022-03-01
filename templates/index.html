@@ -72,23 +72,13 @@
                     <td>
                         <label :for="role.name">[[ role.name ]]</label>
                     </td>
+                    <!-- もっとエレガントに書き直す -->
                     <td v-if="role.name !='市民'">
-                        <input type="number" :id="role.name" min="0" max=player_num  v-model="role.num">
+                        <input type="number" :id="role.name" v-on:change="countupdown" min="0" max=player_num  v-model="role.num" >
                     </td>
                     <td v-else>
-                        <input type="number" :id="role.name" v-model="vil_num" disabled="true">
+                        <input type="number" :id="role.name" v-model="role.num" disabled="true">
                     </td>
-                    <!-- <td v-else>
-                        <input type="number" :id="role.name" v-model="vil_num" disabled="true">
-                    </td> -->
-                    <!-- <td v-if="role.name !='市民'">[[ role.num ]]</td>
-                    <td v-else>[[ vil_num ]]</td> -->
-                    <!-- <td>
-                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countdown(role)">-</button>
-                    </td>
-                    <td>
-                        <button v-if="phase=='参加受付中' && role.name !='市民'" v-on:click="countup(role)">+</button>
-                    </td> -->
                 </tr>
             </table>
         </template>
@@ -116,12 +106,7 @@
                 isVoted: false,
                 objectIndexes: [], // 各役職の投票対象となるindex
                 groupTargetDict: {},
-                castMenu: [
-                    { 'name': "人狼", 'num': 1 },
-                    { 'name': "占い師", 'num': 0 },
-                    { 'name': "騎士", 'num': 0 },
-                    { 'name': "市民", 'num': this.vil_num }
-                ],
+                castMenu: [],
             },
             computed: {
                 myIndex: function () {
@@ -147,17 +132,17 @@
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
-                vil_num: function () {
-                    return this.player_num - this.castMenu.reduce(function (sum, role) {
-                        if(role.name == "市民"){
-                            return sum
-                        }
-                        else{
-                            return sum + Number(role.num)
-                        }
-                        
-                    }, 0)
-                },
+
+                // vil_num: function () {
+                //     return this.player_num - this.castMenu.reduce(function (sum, role) {
+                //         if(role.name == "市民"){
+                //             return sum
+                //         }
+                //         else{
+                //             return sum + Number(role.num)
+                //         }
+                //     }, 0)
+                // },
                 Target: function () {
                     return function (index) {
                         return this.objectIndexes.includes(index)
@@ -238,26 +223,20 @@
                         this.nextGame()
                     }
                 },
-                countup: function (role) {
-                    role.num++
-                    console.log(role.num)
+                countupdown: function () {
                     socket.emit('change cast', this.castMenu)
                 },
-                countdown: function (role) {
-                    role.num--
-                    socket.emit('change cast', this.castMenu)
-                }
             },
             mounted: function () {
                 axios.get('/player_list')
                     .then(response => {
                         this.players = response.data.players
                         this.phase = response.data.phase
+                        this.castMenu = response.data.castMenu
                     })
                     .catch(error => console.log(error))
                 // リロード対応。sessionStorageにmysidが残っている場合にemit
                 if (sessionStorage.myName) {
-
                     this.myName = sessionStorage.myName
                     socket.emit('reload', this.myName)
                 }
@@ -272,10 +251,9 @@
                     if ("group_target_dict" in data) {
                         this.groupTargetDict = data.group_target_dict
                     }
-                    if ("menu" in data) {   //市民は自動計算するために、castMenuを書き換える
-                        console.log(data.menu)
-                        this.castMenu = data.menu
-                        this.castMenu[-1] = { 'name': "市民", 'num': this.vil_num }
+                    if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
+                        this.castMenu = data.castMenu
+                        // this.castMenu[-1] = { 'name': "市民", 'num': this.vil_num }
                     }
                 })
             },
