@@ -133,16 +133,6 @@
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
 
-                // vil_num: function () {
-                //     return this.player_num - this.castMenu.reduce(function (sum, role) {
-                //         if(role.name == "市民"){
-                //             return sum
-                //         }
-                //         else{
-                //             return sum + Number(role.num)
-                //         }
-                //     }, 0)
-                // },
                 Target: function () {
                     return function (index) {
                         return this.objectIndexes.includes(index)

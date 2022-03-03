@@ -105,13 +105,13 @@ class Village:
         for cast in self.cast_menu:
             if cast['name'] == '人狼':
                 Werewolf.group.clear()
-                for i in range(cast['num']):
+                for i in range(int(cast['num'])):
                     self.casts.append(Werewolf())
             elif cast['name'] == '占い師':
-                for i in range(cast['num']):
+                for i in range(int(cast['num'])):
                     self.casts.append(FortuneTeller())
             elif cast['name'] == '騎士':
-                for i in range(cast['num']):
+                for i in range(int(cast['num'])):
                     self.casts.append(Knight())
         while len(self.casts) < len(self.players):
             self.casts.append(Villager())
@@ -243,7 +243,7 @@ def submit_member(players):
         new_players.append(player)
         id += 1
     vil.players = new_players
-    emit('message', {'players': vil.players}, broadcast=True)
+    emit('message', {'players': vil.players,}, broadcast=True)
 
 
 @socketio.on('join')
