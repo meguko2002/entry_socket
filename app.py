@@ -31,6 +31,13 @@ class Villager(Cast):
         super(Villager, self).__init__()
         self.done_action = True
 
+class Psycho(Cast):
+    def __init__(self):
+        super(Psycho, self).__init__()
+        self.name = '狂人'
+        self.team = 'black'
+        self.color = 'white'
+        self.done_action = True
 
 class Werewolf(Cast):
     group = []
@@ -85,20 +92,33 @@ class Village:
         self.casts = []
         self.phase = '参加受付中'
         self.dead_ids = []
-        self.cast_menu = [
-            {'name': "人狼", 'num': 1},
-            {'name': "占い師", 'num': 0},
-            {'name': "騎士", 'num': 0},
-        ]
+        self.cast_menu = {"人狼":2,"占い師":1,"騎士":0,"狂人":0,"市民":1}
+        # [
+        #     {'name': "人狼", 'num': 1},
+        #     {'name': "占い師", 'num': 0},
+        #     {'name': "騎士", 'num': 0},
+        #     {'name': "狂人", 'num': 0},
+        #     {'name': "市民", 'num': 3},
+        # ]
 
-    def calc_villager(self):
-        total_num = 0
-        for cast in self.cast_menu:
-            if cast['name'] == '市民':
-                self.cast_menu.remove(cast)
-            else:
-                total_num += int(cast['num'])
-        self.cast_menu.append({'name': '市民', 'num': len(self.players) - total_num})
+    def calc_villager(self, new_cast_num):
+        cast_sum = 0
+        for cast in new_cast_num:
+            cast_sum += int(cast['num'])
+
+        # 提示されたキャストの総数がプレイヤー数より多かったら Falseを返す
+        # (そのあとの処理で変更前のcast_numをemitする
+        # if cast_sum > len(self.players):
+        #
+        #     return False
+        # # 真cast_numで矛盾がなければcast_numを更新
+        # else:
+        #
+        # self.cast_menu.append({'name': '市民', 'num': vil_num})
+        # for cast in self.cast_menu:
+        #     if cast['name'] == '市民':
+        #         cast['num'] = vil_num
+        # return True
 
     # キャスト決め
     def select_cast(self):
@@ -225,7 +245,7 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    vil.calc_villager()
+    # if vil.calc_villager():
     return jsonify({'players': vil.players, 'phase': vil.phase, 'castMenu': vil.cast_menu})
 
 
@@ -405,10 +425,18 @@ def give_gm(myindex, index):
 
 
 @socketio.on('change cast')
-def change_cast(menu):
-    vil.cast_menu = menu
-    vil.calc_villager()
-    emit('message', {'castMenu': menu}, broadcast=True)
+def change_cast(new_menu):
+    # vil.cast_menu = menu
+    cast_sum = 0
+    for castname,num in new_menu.items():
+        if castname == '市民':
+            continue
+        cast_sum += int(num)
+    vil_num = len(vil.players) - cast_sum
+    if vil_num >= 0:
+        new_menu['市民'] = vil_num
+        vil.cast_menu = new_menu
+    emit('message', {'castMenu': vil.cast_menu}, broadcast=True)
 
 
 @socketio.on('disconnect')

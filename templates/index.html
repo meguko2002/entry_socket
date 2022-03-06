@@ -67,18 +67,18 @@
 
         <template id="casting">
             <table class="table table-bordered">
-                <tr v-for="role in castMenu">
-                    <!-- <td>[[ role.name ]]</td> -->
+                <tr v-for="(num, name) in castMenu">
                     <td>
-                        <label :for="role.name">[[ role.name ]]</label>
+                        <label :for="name">[[ name ]]</label>
                     </td>
                     <!-- もっとエレガントに書き直す -->
-                    <td v-if="role.name !='市民'">
-                        <input type="number" :id="role.name" v-on:change="countupdown" min="0" max=player_num  v-model="role.num" >
+                    <!-- <td v-if="name !='市民'"> -->
+                    <td>
+                        <input v-model.number="castMenu[name]" type="number" v-on:click=countupdown id="name" min="0" max="100">
                     </td>
-                    <td v-else>
-                        <input type="number" :id="role.name" v-model="role.num" disabled="true">
-                    </td>
+                    <!-- <td v-else>
+                        <input type="number" :id="name" v-model="num" disabled="true">
+                    </td> -->
                 </tr>
             </table>
         </template>
@@ -106,7 +106,7 @@
                 isVoted: false,
                 objectIndexes: [], // 各役職の投票対象となるindex
                 groupTargetDict: {},
-                castMenu: [],
+                castMenu: {},
             },
             computed: {
                 myIndex: function () {
@@ -148,11 +148,23 @@
                         }
                     }
                 },
-                player_num: function () {
-                    return this.players.length
-                },
+                // player_num: function () {
+                //     return this.players.length
+                // },
+                // castnum_wo_vil: function(){
+                //     return this.castMenu.slice(0,-1).reduce(function (sum, cast){
+                //         return sum + Number(cast.num)
+                //     },0)
+                // },
+                // numAdjustOk: function(){
+                //     return(this.player_num-this.castnum_wo_vil > 0)
+                // }
             },
             methods: {
+                // restNum(role){
+                //     this.player_num-this.castnum_wo_vil()+role.num
+
+                // },
                 submitOrNot(index) {
                     if (this.IamActive) {
                         this.myName = ''
@@ -243,7 +255,6 @@
                     }
                     if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
                         this.castMenu = data.castMenu
-                        // this.castMenu[-1] = { 'name': "市民", 'num': this.vil_num }
                     }
                 })
             },
