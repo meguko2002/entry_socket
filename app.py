@@ -10,7 +10,7 @@ socketio = SocketIO(app)
 
 class Cast:
 
-    def __init__(self, ):
+    def __init__(self):
         self.name = '市民'
         self.team = 'white'
         self.color = 'white'
@@ -28,12 +28,12 @@ class Cast:
 
 class Villager(Cast):
     def __init__(self):
-        super(Villager, self).__init__()
+        super().__init__()
         self.done_action = True
 
-class Psycho(Cast):
+class Madman(Cast):
     def __init__(self):
-        super(Psycho, self).__init__()
+        super().__init__()
         self.name = '狂人'
         self.team = 'black'
         self.color = 'white'
@@ -44,7 +44,7 @@ class Werewolf(Cast):
     target_dict = {}
 
     def __init__(self):
-        super(Werewolf, self).__init__()
+        super().__init__()
         self.name = '人狼'
         self.team = 'black'
         self.color = 'black'
@@ -62,7 +62,7 @@ class Werewolf(Cast):
 
 class FortuneTeller(Cast):
     def __init__(self):
-        super(FortuneTeller, self).__init__()
+        super().__init__()
         self.name = '占い師'
         self.team = 'white'
         self.color = 'white'
@@ -72,7 +72,7 @@ class FortuneTeller(Cast):
 
 class Knight(Cast):
     def __init__(self):
-        super(Knight, self).__init__()
+        super().__init__()
         self.name = '騎士'
         self.team = 'white'
         self.color = 'white'
@@ -122,19 +122,24 @@ class Village:
 
     # キャスト決め
     def select_cast(self):
-        for cast in self.cast_menu:
-            if cast['name'] == '人狼':
+        for castname, num in self.cast_menu.items():
+            if castname == '人狼':
                 Werewolf.group.clear()
-                for i in range(int(cast['num'])):
+                for i in range(num):
                     self.casts.append(Werewolf())
-            elif cast['name'] == '占い師':
-                for i in range(int(cast['num'])):
+            elif castname == '占い師':
+                for i in range(num):
                     self.casts.append(FortuneTeller())
-            elif cast['name'] == '騎士':
-                for i in range(int(cast['num'])):
+            elif castname == '騎士':
+                for i in range(num):
                     self.casts.append(Knight())
-        while len(self.casts) < len(self.players):
-            self.casts.append(Villager())
+            elif castname == '狂人':
+                for i in range(num):
+                    self.casts.append(Madman())
+            elif castname == '市民':
+                for i in range(num):
+                    self.casts.append(Villager())
+
 
     # キャストの割り当て
     def assign_cast(self):
@@ -174,9 +179,9 @@ class Village:
         black_num = 0
         for cast in self.casts:
             if cast.is_alive:
-                if cast.team == 'white':
+                if cast.color == 'white':
                     white_num += 1
-                elif cast.team == 'black':
+                elif cast.color == 'black':
                     black_num += 1
         if black_num == 0:
             self.phase = '市民勝利'
@@ -249,21 +254,37 @@ def show_list():
     return jsonify({'players': vil.players, 'phase': vil.phase, 'castMenu': vil.cast_menu})
 
 
+# @socketio.on('change cast')
+# def change_cast(new_menu):
+#     cast_sum = 0
+#     for castname,num in new_menu.items():
+#         if castname == '市民':
+#             continue
+#         cast_sum += int(num)
+#     vil_num = len(vil.players) - cast_sum
+#     if vil_num >= 0:
+#         new_menu['市民'] = vil_num
+#         vil.cast_menu = new_menu
+#     emit('message', {'castMenu': vil.cast_menu}, broadcast=True)
+
 @socketio.on('submit member')
 def submit_member(players):
     # 参加者キャンセルのため、各参加者のIDを振りなおす
     new_players = []
-    id = 0
+    # id = 0
+    remove_ids=[]
     for player in players:
-        if player.get('isRemoved'):
-            continue
-        for pre_player in vil.players:
-            if pre_player['name'] == player['name']:
-                emit('message', {'myIndex': id}, room=pre_player['sid'])
-        new_players.append(player)
-        id += 1
+        if not player.get('isRemoved'):
+            new_players.append(player)
     vil.players = new_players
-    emit('message', {'players': vil.players,}, broadcast=True)
+
+    #     for pre_player in vil.players:
+    #         if pre_player['name'] == player['name']:
+    #             emit('message', {'myIndex': id}, room=pre_player['sid'])
+    #     new_players.append(player)
+    #     id += 1
+    # vil.players = new_players
+    emit('message', {'players': vil.players, 'castMenu': vil.cast_menu}, broadcast=True)
 
 
 @socketio.on('join')
@@ -426,7 +447,6 @@ def give_gm(myindex, index):
 
 @socketio.on('change cast')
 def change_cast(new_menu):
-    # vil.cast_menu = menu
     cast_sum = 0
     for castname,num in new_menu.items():
         if castname == '市民':
