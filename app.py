@@ -93,32 +93,12 @@ class Village:
         self.phase = '参加受付中'
         self.dead_ids = []
         self.cast_menu = {"人狼":2,"占い師":1,"騎士":0,"狂人":0,"市民":1}
-        # [
-        #     {'name': "人狼", 'num': 1},
-        #     {'name': "占い師", 'num': 0},
-        #     {'name': "騎士", 'num': 0},
-        #     {'name': "狂人", 'num': 0},
-        #     {'name': "市民", 'num': 3},
-        # ]
+
 
     def calc_villager(self, new_cast_num):
         cast_sum = 0
         for cast in new_cast_num:
             cast_sum += int(cast['num'])
-
-        # 提示されたキャストの総数がプレイヤー数より多かったら Falseを返す
-        # (そのあとの処理で変更前のcast_numをemitする
-        # if cast_sum > len(self.players):
-        #
-        #     return False
-        # # 真cast_numで矛盾がなければcast_numを更新
-        # else:
-        #
-        # self.cast_menu.append({'name': '市民', 'num': vil_num})
-        # for cast in self.cast_menu:
-        #     if cast['name'] == '市民':
-        #         cast['num'] = vil_num
-        # return True
 
     # キャスト決め
     def select_cast(self):
@@ -153,7 +133,6 @@ class Village:
                 wolves.append(index)
 
         for my_id, my_cast in enumerate(self.casts):
-            # 　基本的に自分の役職以外は分からない
             for target_id, target_cast in enumerate(self.casts):
                 if target_id == my_id:
                     my_cast.opencasts.append(my_cast.name)
@@ -253,37 +232,15 @@ def show_list():
     # if vil.calc_villager():
     return jsonify({'players': vil.players, 'phase': vil.phase, 'castMenu': vil.cast_menu})
 
-
-# @socketio.on('change cast')
-# def change_cast(new_menu):
-#     cast_sum = 0
-#     for castname,num in new_menu.items():
-#         if castname == '市民':
-#             continue
-#         cast_sum += int(num)
-#     vil_num = len(vil.players) - cast_sum
-#     if vil_num >= 0:
-#         new_menu['市民'] = vil_num
-#         vil.cast_menu = new_menu
-#     emit('message', {'castMenu': vil.cast_menu}, broadcast=True)
-
 @socketio.on('submit member')
 def submit_member(players):
     # 参加者キャンセルのため、各参加者のIDを振りなおす
     new_players = []
-    # id = 0
-    remove_ids=[]
     for player in players:
         if not player.get('isRemoved'):
             new_players.append(player)
     vil.players = new_players
 
-    #     for pre_player in vil.players:
-    #         if pre_player['name'] == player['name']:
-    #             emit('message', {'myIndex': id}, room=pre_player['sid'])
-    #     new_players.append(player)
-    #     id += 1
-    # vil.players = new_players
     emit('message', {'players': vil.players, 'castMenu': vil.cast_menu}, broadcast=True)
 
 
@@ -462,13 +419,10 @@ def change_cast(new_menu):
 @socketio.on('disconnect')
 def disconnect():
     sid = request.sid
-    # leave_room()
     for id, player in enumerate(vil.players):
         if player.get('sid') == sid:
             player['sid'] = ''
             break
-    # emit('message', {'players': vil.players}, broadcast=True)
-
 
 if __name__ == '__main__':
     socketio.run(app, host='192.168.2.29', debug=True)

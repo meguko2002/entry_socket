@@ -71,14 +71,11 @@
                     <td>
                         <label :for="name">[[ name ]]</label>
                     </td>
-                    <!-- もっとエレガントに書き直す -->
-                    <!-- <td v-if="name !='市民'"> -->
                     <td>
-                        <input v-model.number="castMenu[name]" type="number" v-on:click=countupdown :disabled="isVillager(name)" id="name" min="0" max="100">
+                        <input v-model.number="castMenu[name]" type="number" v-on:click=countupdown
+                            :disabled="isVillager(name) || notCtrCastnum" id="name" min="0" max="100">
                     </td>
-                    <!-- <td v-else>
-                        <input type="number" :id="name" v-model="num" disabled="true">
-                    </td> -->
+
                 </tr>
             </table>
         </template>
@@ -109,6 +106,9 @@
                 castMenu: {},
             },
             computed: {
+                notCtrCastnum: function () {
+                    return this.phase != '参加受付中'
+                },
                 myIndex: function () {
                     return this.players.findIndex(p => p.name == this.myName)
                 },
@@ -148,28 +148,14 @@
                         }
                     }
                 },
-                isVillager:function(){
-                    return function(name){
+                isVillager: function () {
+                    return function (name) {
                         return name == '市民'
                     }
                 }
-                // player_num: function () {
-                //     return this.players.length
-                // },
-                // castnum_wo_vil: function(){
-                //     return this.castMenu.slice(0,-1).reduce(function (sum, cast){
-                //         return sum + Number(cast.num)
-                //     },0)
-                // },
-                // numAdjustOk: function(){
-                //     return(this.player_num-this.castnum_wo_vil > 0)
-                // }
             },
             methods: {
-                // restNum(role){
-                //     this.player_num-this.castnum_wo_vil()+role.num
 
-                // },
                 submitOrNot(index) {
                     if (this.IamActive) {
                         this.myName = ''
