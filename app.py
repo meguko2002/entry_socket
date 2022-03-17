@@ -31,6 +31,7 @@ class Villager(Cast):
         super().__init__()
         self.done_action = True
 
+
 class Madman(Cast):
     def __init__(self):
         super().__init__()
@@ -38,6 +39,7 @@ class Madman(Cast):
         self.team = 'black'
         self.color = 'white'
         self.done_action = True
+
 
 class Werewolf(Cast):
     group = []
@@ -67,7 +69,7 @@ class FortuneTeller(Cast):
         self.team = 'white'
         self.color = 'white'
         self.gm_message = '誰を占いますか'
-        self.random_white = True
+
 
 
 class Knight(Cast):
@@ -77,12 +79,14 @@ class Knight(Cast):
         self.team = 'white'
         self.color = 'white'
         self.gm_message = '誰を護衛しますか'
-        self.consecutive_guard = False  # True: 連ガード有り
+
 
 
 players = [{'name': '太郎', 'isAlive': True, 'sid': '', 'isGM': True},
            {'name': '花子', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': 'じろ', 'isAlive': True, 'sid': '', 'isGM': False},
+           {'name': '三郎', 'isAlive': True, 'sid': '', 'isGM': False},
+           {'name': '史郎', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': 'ポコ', 'isAlive': True, 'sid': '', 'isGM': False}]
 
 
@@ -92,8 +96,9 @@ class Village:
         self.casts = []
         self.phase = '参加受付中'
         self.dead_ids = []
-        self.cast_menu = {"人狼":2,"占い師":1,"騎士":0,"狂人":0,"市民":1}
-
+        self.cast_menu = {"人狼": 2, "占い師": 1, "騎士": 0, "狂人": 0, "市民": 1}
+        self.random_white = True
+        self.consecutive_guard = False  # True: 連ガード有り
 
     def calc_villager(self, new_cast_num):
         cast_sum = 0
@@ -120,33 +125,34 @@ class Village:
                 for i in range(num):
                     self.casts.append(Villager())
 
-
-    # キャストの割り当て
-    def assign_cast(self):
-        random.shuffle(self.casts)
-        whites = []
-        wolves = []
-        for index, cast in enumerate(self.casts):
-            if cast.color == 'white':
-                whites.append(index)
-            elif cast.name == '人狼':
-                wolves.append(index)
-
-        for my_id, my_cast in enumerate(self.casts):
-            for target_id, target_cast in enumerate(self.casts):
-                if target_id == my_id:
-                    my_cast.opencasts.append(my_cast.name)
-                else:
-                    my_cast.opencasts.append('')
-
-            if my_cast.name in ['人狼', '狂信者']:
-                for wolf_id in wolves:
-                    my_cast.opencasts[wolf_id] = '人狼'
-            elif my_cast.name == '占い師':
-                # ランシロありの処理
-                if my_cast.random_white:
-                    random_white_id = random.choice(whites)
-                    my_cast.opencasts[random_white_id] = '人狼ではない'
+    # # キャストの割り当て
+    # def assign_cast(self, renguard, ranshiro):
+    #     random.shuffle(self.casts)
+    #     whites = []
+    #     wolves = []
+    #     for index, cast in enumerate(self.casts):
+    #         if cast.color == 'white':
+    #             whites.append(index)
+    #         elif cast.name == '人狼':
+    #             wolves.append(index)
+    #
+    #     for my_id, my_cast in enumerate(self.casts):
+    #         for target_id, target_cast in enumerate(self.casts):
+    #             if target_id == my_id:
+    #                 my_cast.opencasts.append(my_cast.name)
+    #             else:
+    #                 my_cast.opencasts.append('')
+    #         if my_cast.name in ['人狼', '狂信者']:      # 自分が人狼または狂信者だったら
+    #             for wolf_id in wolves:
+    #                 my_cast.opencasts[wolf_id] = '人狼'      # ほかの人狼を知る
+    #         elif my_cast.name == '占い師':
+    #             # ランシロありの処理
+    #             my_cast.random_white = ranshiro
+    #             if my_cast.random_white:
+    #                 random_white_id = random.choice(whites)
+    #                 my_cast.opencasts[random_white_id] = '人狼ではない'
+    #         elif my_cast.name == '騎士':
+    #             my_cast.consecutive_guard = renguard
 
     def expel(self, index):
         self.players[index]['isAlive'] = False
@@ -232,6 +238,7 @@ def show_list():
     # if vil.calc_villager():
     return jsonify({'players': vil.players, 'phase': vil.phase, 'castMenu': vil.cast_menu})
 
+
 @socketio.on('submit member')
 def submit_member(players):
     # 参加者キャンセルのため、各参加者のIDを振りなおす
@@ -278,15 +285,42 @@ def decline():
 
 
 @socketio.on('assign cast')
-def assign_cast():
+def assign_cast(renguard, ranshiro):
+    vil.random_white = ranshiro
+    vil.consecutive_guard = renguard
     vil.player_reset()
     vil.select_cast()
-    vil.assign_cast()
+
+# キャストの割り当て
+    random.shuffle(vil.casts)
+    whites = []
+    wolves = []
+    for index, cast in enumerate(vil.casts):
+        if cast.color == 'white':
+            whites.append(index)
+        elif cast.name == '人狼':
+            wolves.append(index)
     vil.phase = '昼'
-    for player, cast in zip(vil.players, vil.casts):
-        message = player['name'] + 'は' + cast.name
-        emit('message', {'players': vil.players, 'phase': vil.phase, 'msg': message,
-                         'casts': cast.opencasts}, room=player['sid'])
+    # 一人ずつにキャストを送る
+    for my_id, cast in enumerate(vil.casts):
+        for target_id, target_cast in enumerate(vil.casts):
+            if target_id == my_id:
+                cast.opencasts.append(cast.name)
+            else:
+                cast.opencasts.append('')
+        if cast.name in ['人狼', '狂信者']:      # 送り先が人狼または狂信者だったら
+            for wolf_id in wolves:
+                cast.opencasts[wolf_id] = '人狼'      # 自分含めほかの人狼の情報も送る
+        elif cast.name == '占い師':
+            if renguard:
+                random_white_id = random.choice(whites)
+                cast.opencasts[random_white_id] = '人狼ではない'
+    # for player, cast in zip(vil.players, vil.casts):
+        message = vil.players[my_id]['name'] + 'は' + cast.name
+        emit('message', {'players': vil.players, 'phase': vil.phase,
+                         'msg': message,'casts': cast.opencasts,
+                         'option':{'ranshiro':ranshiro, 'renguard':renguard}},
+             room=vil.players[my_id]['sid'])
 
 
 @socketio.on('vote')
@@ -319,7 +353,7 @@ def response_action():
                             if target in cast.group:
                                 continue
                         elif cast.name == '騎士':
-                            if not cast.consecutive_guard and target.is_protected:
+                            if not vil.consecutive_guard and target.is_protected:
                                 target.is_protected = False
                                 continue
                         target_candidates.append(target_index)
@@ -405,7 +439,7 @@ def give_gm(myindex, index):
 @socketio.on('change cast')
 def change_cast(new_menu):
     cast_sum = 0
-    for castname,num in new_menu.items():
+    for castname, num in new_menu.items():
         if castname == '市民':
             continue
         cast_sum += int(num)
@@ -423,6 +457,7 @@ def disconnect():
         if player.get('sid') == sid:
             player['sid'] = ''
             break
+
 
 if __name__ == '__main__':
     socketio.run(app, host='192.168.2.29', debug=True)
