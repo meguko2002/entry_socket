@@ -2,6 +2,7 @@
 from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
+import json
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
@@ -29,15 +30,6 @@ class Cast:
 class Villager(Cast):
     def __init__(self):
         super().__init__()
-        self.done_action = True
-
-
-class Madman(Cast):
-    def __init__(self):
-        super().__init__()
-        self.name = '狂人'
-        self.team = 'black'
-        self.color = 'white'
         self.done_action = True
 
 
@@ -71,7 +63,6 @@ class FortuneTeller(Cast):
         self.gm_message = '誰を占いますか'
 
 
-
 class Knight(Cast):
     def __init__(self):
         super().__init__()
@@ -80,6 +71,23 @@ class Knight(Cast):
         self.color = 'white'
         self.gm_message = '誰を護衛しますか'
 
+
+class Madman(Cast):
+    def __init__(self):
+        super().__init__()
+        self.name = '狂人'
+        self.team = 'black'
+        self.color = 'white'
+        self.done_action = True
+
+
+class Fanatic(Cast):
+    def __init__(self):
+        super().__init__()
+        self.name = '狂信者'
+        self.team = 'black'
+        self.color = 'white'
+        self.done_action = True
 
 
 players = [{'name': '太郎', 'isAlive': True, 'sid': '', 'isGM': True},
@@ -96,9 +104,9 @@ class Village:
         self.casts = []
         self.phase = '参加受付中'
         self.dead_ids = []
-        self.cast_menu = {"人狼": 2, "占い師": 1, "騎士": 0, "狂人": 0, "市民": 1}
-        self.random_white = True
-        self.consecutive_guard = False  # True: 連ガード有り
+        self.cast_menu = {"人狼": 1, "占い師": 1, "騎士": 1, "狂人": 1, "狂信者": 0, "市民": 2}
+        self.ranshiro = True
+        self.renguard = False  # True: 連ガード有り
 
     def calc_villager(self, new_cast_num):
         cast_sum = 0
@@ -106,6 +114,7 @@ class Village:
             cast_sum += int(cast['num'])
 
     # キャスト決め
+    # todo: いちいちcastnameを見に行かないで上手くやる。これでは新役職追加に対応できない
     def select_cast(self):
         for castname, num in self.cast_menu.items():
             if castname == '人狼':
@@ -121,38 +130,12 @@ class Village:
             elif castname == '狂人':
                 for i in range(num):
                     self.casts.append(Madman())
-            elif castname == '市民':
+            elif castname == '狂信者':
+                for i in range(num):
+                    self.casts.append(Fanatic())
+            else:   # 残りは市民とみなす
                 for i in range(num):
                     self.casts.append(Villager())
-
-    # # キャストの割り当て
-    # def assign_cast(self, renguard, ranshiro):
-    #     random.shuffle(self.casts)
-    #     whites = []
-    #     wolves = []
-    #     for index, cast in enumerate(self.casts):
-    #         if cast.color == 'white':
-    #             whites.append(index)
-    #         elif cast.name == '人狼':
-    #             wolves.append(index)
-    #
-    #     for my_id, my_cast in enumerate(self.casts):
-    #         for target_id, target_cast in enumerate(self.casts):
-    #             if target_id == my_id:
-    #                 my_cast.opencasts.append(my_cast.name)
-    #             else:
-    #                 my_cast.opencasts.append('')
-    #         if my_cast.name in ['人狼', '狂信者']:      # 自分が人狼または狂信者だったら
-    #             for wolf_id in wolves:
-    #                 my_cast.opencasts[wolf_id] = '人狼'      # ほかの人狼を知る
-    #         elif my_cast.name == '占い師':
-    #             # ランシロありの処理
-    #             my_cast.random_white = ranshiro
-    #             if my_cast.random_white:
-    #                 random_white_id = random.choice(whites)
-    #                 my_cast.opencasts[random_white_id] = '人狼ではない'
-    #         elif my_cast.name == '騎士':
-    #             my_cast.consecutive_guard = renguard
 
     def expel(self, index):
         self.players[index]['isAlive'] = False
@@ -235,7 +218,6 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    # if vil.calc_villager():
     return jsonify({'players': vil.players, 'phase': vil.phase, 'castMenu': vil.cast_menu})
 
 
@@ -284,14 +266,23 @@ def decline():
     emit('message', {'players': vil.players}, broadcast=True)
 
 
+@socketio.on('set ranshiro')
+def set_ranshiro(ranshiro):
+    vil.ranshiro = json.loads(ranshiro)     # jsonで帰ってくる"true"は文字列なのでpythonのboolであるTrueに変換
+    emit('message', {'ranshiro': ranshiro}, broadcast=True)
+
+
+@socketio.on('set renguard')
+def set_renguard(renguard):
+    vil.renguard = json.loads(renguard)
+    emit('message', {'renguard': renguard}, broadcast=True)
+
+
 @socketio.on('assign cast')
-def assign_cast(renguard, ranshiro):
-    vil.random_white = ranshiro
-    vil.consecutive_guard = renguard
+def assign_cast():
     vil.player_reset()
     vil.select_cast()
-
-# キャストの割り当て
+    # キャストの割り当て
     random.shuffle(vil.casts)
     whites = []
     wolves = []
@@ -308,18 +299,16 @@ def assign_cast(renguard, ranshiro):
                 cast.opencasts.append(cast.name)
             else:
                 cast.opencasts.append('')
-        if cast.name in ['人狼', '狂信者']:      # 送り先が人狼または狂信者だったら
+        if cast.name in ['人狼', '狂信者']:  # 送り先が人狼または狂信者だったら
             for wolf_id in wolves:
-                cast.opencasts[wolf_id] = '人狼'      # 自分含めほかの人狼の情報も送る
+                cast.opencasts[wolf_id] = '人狼'  # 自分含めほかの人狼の情報も送る
         elif cast.name == '占い師':
-            if renguard:
-                random_white_id = random.choice(whites)
-                cast.opencasts[random_white_id] = '人狼ではない'
-    # for player, cast in zip(vil.players, vil.casts):
+            if vil.ranshiro:
+                ranshiro_id = random.choice(whites)
+                cast.opencasts[ranshiro_id] = '人狼ではない'
         message = vil.players[my_id]['name'] + 'は' + cast.name
         emit('message', {'players': vil.players, 'phase': vil.phase,
-                         'msg': message,'casts': cast.opencasts,
-                         'option':{'ranshiro':ranshiro, 'renguard':renguard}},
+                         'msg': message, 'casts': cast.opencasts},
              room=vil.players[my_id]['sid'])
 
 
@@ -353,7 +342,7 @@ def response_action():
                             if target in cast.group:
                                 continue
                         elif cast.name == '騎士':
-                            if not vil.consecutive_guard and target.is_protected:
+                            if not vil.renguard and target.is_protected:
                                 target.is_protected = False
                                 continue
                         target_candidates.append(target_index)

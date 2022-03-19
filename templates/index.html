@@ -48,7 +48,6 @@
                 <button v-on:click="addMember">追加</button>
             </template>
         </template>
-        <!-- <button v-on:click="resetStatus">再ロード</button> -->
 
         <template v-if="IamGM">
             <button v-if="phase=='参加者登録'" v-on:click=" submitMember">参加受付へ</button>
@@ -77,23 +76,18 @@
             </table>
 
             <p>連続ガード<br>
-                <input type="radio" id="renguard_on" value=true v-model="renguard">
+                <input type="radio" id="renguard_on" value=true v-model="renguard" :disabled="phase!='参加受付中'">
                 <label for="renguard_on">あり</label>
                 <br>
-                <input type="radio" id="renguard_off" value=false v-model="renguard">
+                <input type="radio" id="renguard_off" value=false v-model="renguard" :disabled="phase!='参加受付中'">
                 <label for="renguard_off">なし</label>
-                <br>
-                <span>Picked: [[ renguard ]]</span>
             </p>
-
-            <p>初日占い（ランシロ）<br>
-                <input type="radio" id="nanshiro_on" value=true v-model="ranshiro">
+            <p>ランシロ<br>
+                <input type="radio" id="nanshiro_on" value=true v-model="ranshiro" :disabled="phase!='参加受付中'">
                 <label for="nanshiro_on">あり</label>
                 <br>
-                <input type="radio" id="nanshiro_off"  value=false v-model="ranshiro">
+                <input type="radio" id="nanshiro_off" value=false v-model="ranshiro" :disabled="phase!='参加受付中'">
                 <label for="nanshiro_off">なし</label>
-                <br>
-                <span>Picked: [[ ranshiro ]]</span>
             </p>
         </template>
     </div>
@@ -103,6 +97,7 @@
         integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
         crossorigin="anonymous"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
     <script>
         const socket = io();
         Vue.options.delimiters = ['[[', ']]'];
@@ -110,8 +105,6 @@
         const app = new Vue({
             el: '#app',
             data: {
-                renguard: false,
-                ranshiro: true,
                 players: [],
                 playerName: '',
                 casts: [],
@@ -123,7 +116,18 @@
                 objectIndexes: [], // 各役職の投票対象となるindex
                 groupTargetDict: {},
                 castMenu: {},
+                renguard: false,
+                ranshiro: true,
             },
+            watch: {
+                renguard: function (newVal, oldVal) {
+                    socket.emit('set renguard', this.renguard)
+                },
+                ranshiro: function (newVal, oldVal) {
+                    socket.emit('set ranshiro', this.ranshiro)
+                }
+            },
+
             computed: {
                 notCtrCastnum: function () {
                     return this.phase != '参加受付中'
@@ -214,7 +218,7 @@
                     this.gmChanging = false
                 },
                 assignCast: function () {
-                    socket.emit('assign cast',this.renguard, this.ranshiro)
+                    socket.emit('assign cast')
                 },
                 vote: function (index) {
                     socket.emit('vote', index)
@@ -275,9 +279,11 @@
                     if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
                         this.castMenu = data.castMenu
                     }
-                    if("option" in data){
-                        this.ranshiro = data.option.ranshiro
-                        this.renguard = data.option.renguard
+                    if ("ranshiro" in data) {
+                        this.ranshiro = data.ranshiro
+                    }
+                    if ("renguard" in data) {
+                        this.renguard = data.renguard
                     }
                 })
             },
