@@ -77,7 +77,7 @@ class Fanatic(Cast):
 
 
 players = [{'name': '山口', 'isAlive': True, 'sid': '', 'isGM': True},
-           {'name': '花子', 'isAlive': True, 'sid': '', 'isGM': False},
+           {'name': 'はなき', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': 'じろ', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': '三郎', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': '史郎', 'isAlive': True, 'sid': '', 'isGM': False},
