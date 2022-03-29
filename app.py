@@ -77,7 +77,7 @@ class Fanatic(Cast):
 
 
 players = [{'name': '山口', 'isAlive': True, 'sid': '', 'isGM': True},
-           {'name': 'はなき', 'isAlive': True, 'sid': '', 'isGM': False},
+           {'name': '太郎', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': 'じろ', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': '三郎', 'isAlive': True, 'sid': '', 'isGM': False},
            {'name': '史郎', 'isAlive': True, 'sid': '', 'isGM': False},
@@ -363,6 +363,7 @@ def response_action():
         else:
             if player['cast'].name in ['人狼']:
                 player['done_action'] = False
+                player['target_id']=None
                 target_candidates = []
                 for p in game.players:
                     if p == player or not p['isAlive']:
@@ -382,7 +383,7 @@ def response_action():
                 for p in game.players:
                     if p == player or (not p['isAlive']):
                         target_candidates.append(False)
-                    elif game.renguard and p.is_protected:
+                    elif game.renguard and p['is_protected']:
                         target_candidates.append(False)
                     else:
                         target_candidates.append(True)
