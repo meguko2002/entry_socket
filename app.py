@@ -2,7 +2,9 @@
 from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
-import json, itertools
+import json
+import pandas as pd
+from pandas import Series,DataFrame
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
@@ -84,20 +86,28 @@ players = [{'name': '山口', 'isAlive': True, 'sid': '', 'isGM': True},
            {'name': 'ポコ', 'isAlive': True, 'sid': '', 'isGM': False}]
 
 
-def _count_surviver(players):
+
+def _count_survivor(pls):
     count = 0
-    for player in players:
-        if player['isAlive']:
+    for p in pls:
+        if p['isAlive']:
             count += 1
     return count
 
 
+def calc_villager(new_cast_num):
+    cast_sum = 0
+    for cast in new_cast_num:
+        cast_sum += int(cast['num'])
+
+
 class Game:
-    def __init__(self, players):
-        self.players = players
+    def __init__(self, pls):
+        self.df = pd.DataFrame(pls)
+        self.players = pls
         self.casts = []
         self.phase = '参加受付中'
-        self.dead_ids = []
+        self.dead_players = []
         self.cast_menu = {"人狼": 2, "占い師": 0, "騎士": 0, "狂人": 0, "狂信者": 0, "市民": 0}
         self.ranshiro = True
         self.renguard = False  # True: 連ガード有り
@@ -108,13 +118,11 @@ class Game:
         self.suv_wolf_num = 0
         self.suv_whites_num = 0
 
-
-
     def set_suv_wolf_num(self):
-        self.suv_wolf_num =  _count_surviver(self.wolves)
+        self.suv_wolf_num = _count_survivor(self.wolves)
 
     def set_suv_whites_num(self):
-        self.suv_whites_num =  _count_surviver(self.whites)
+        self.suv_whites_num = _count_survivor(self.whites)
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
@@ -127,33 +135,27 @@ class Game:
             send_list.append(send_player)
         return send_list
 
-    def calc_villager(self, new_cast_num):
-        cast_sum = 0
-        for cast in new_cast_num:
-            cast_sum += int(cast['num'])
-
     # キャスト決め
     # todo: いちいちcastnameを見に行かないでmapとかで上手くやる。これでは新役職追加に対応できない
     def select_cast(self):
+        castnames=[]
         for castname, num in self.cast_menu.items():
+            for i in range(num):
+                castnames.append(castname)
+        self.casts = []
+        for castname in castnames:
             if castname == '人狼':
-                for i in range(num):
-                    self.casts.append(Werewolf())
+                self.casts.append(Werewolf())
             elif castname == '占い師':
-                for i in range(num):
-                    self.casts.append(FortuneTeller())
+                self.casts.append(FortuneTeller())
             elif castname == '騎士':
-                for i in range(num):
-                    self.casts.append(Knight())
+                self.casts.append(Knight())
             elif castname == '狂人':
-                for i in range(num):
-                    self.casts.append(Madman())
+                self.casts.append(Madman())
             elif castname == '狂信者':
-                for i in range(num):
-                    self.casts.append(Fanatic())
+                self.casts.append(Fanatic())
             else:  # 残りは市民とみなす
-                for i in range(num):
-                    self.casts.append(Villager())
+                self.casts.append(Villager())
 
     def expel(self, index):
         self.players[index]['isAlive'] = False
@@ -175,12 +177,12 @@ class Game:
                 return '夜がきました'
             else:
                 self.phase = '昼'
-                if not self.dead_ids:
+                if not self.dead_players:
                     message = '昨晩、襲撃された方は、いませんでした'
                 else:
-                    p_names = 'と、'.join([self.players[id]['name'] for id in self.dead_ids])
+                    p_names = 'と、'.join([player['name'] for player in self.dead_players])
                     message = '昨晩、' + p_names + 'が襲撃されました'
-                self.dead_ids = []
+                self.dead_players = []
                 return message
 
     def search_player(self, sid):
@@ -190,16 +192,16 @@ class Game:
         return False
 
     def judge_casts_action(self):
-        self.dead_ids = []
+        self.dead_players = []
         for id, player in enumerate(self.players):
             # GJ出なければcastは襲撃
             if player['isAlive']:
                 if player.get('is_targeted') and not player.get('is_protected'):
                     player['isAlive'] = False
-                    self.dead_ids.append(id)
+                    self.dead_players.append(player)
             player['is_targeted'] = False
-        for id in self.dead_ids:
-            self.players[id]['isAlive'] = False
+        for player in self.dead_players:
+            player['isAlive'] = False
 
     def player_reset(self):
         for player in self.players:
@@ -207,7 +209,7 @@ class Game:
             player['cast'] = None
 
     def cast_reset(self):
-        self.casts.clear()
+        # self.casts.clear()
         self.wolves.clear()
         self.whites.clear()
 
@@ -269,7 +271,7 @@ def rejoin(name):
     for player in game.players:
         if player['name'] == name:
             player['sid'] = sid
-            emit('message', {'players': game.players_for_player, 'casts': game.casts}, room=player['sid'])
+            emit('message', {'players': game.players_for_player}, room=player['sid'])
             break
     else:
         print('合致するsidなし')
@@ -298,16 +300,16 @@ def set_renguard(renguard):
 
 
 @socketio.on('assign cast')
-def assign_cast():
+def assign_cast(cast_menu):
+    game.cast_menu = cast_menu
     game.phase = '昼'
     game.player_reset()
     game.cast_reset()
     game.select_cast()
     # キャストの割り当て
     random.shuffle(game.casts)
-    for id, (player, cast) in enumerate(zip(game.players, game.casts)):
+    for player, cast in zip(game.players, game.casts):
         player['cast'] = cast
-        cast.id = id
         if cast.name == '人狼':
             game.wolves.append(player)
         elif cast.color == 'white':
@@ -333,7 +335,7 @@ def assign_cast():
 
         message = player['name'] + 'は' + player['cast'].name
         emit('message',
-             {'players': game.players_for_player, 'phase': game.phase, 'msg': message, 'casts': player['opencasts']},
+             {'players': game.players_for_player, 'phase': game.phase, 'msg': message, 'opencasts': player['opencasts']},
              room=player['sid'])
 
 
@@ -363,7 +365,7 @@ def response_action():
         else:
             if player['cast'].name in ['人狼']:
                 player['done_action'] = False
-                player['target_id']=None
+                player['target_id'] = None
                 target_candidates = []
                 for p in game.players:
                     if p == player or not p['isAlive']:
@@ -406,9 +408,9 @@ def action(target_index):
             # 人狼全員のtargetを洗い出してtarget_list を作成
             # target_list = [[],[2,3],[],[4],[]] 左の例だと、id2と3の人狼が襲撃候補としてid=1の人を提出している
             game.target_list = [[] for p in game.players]
-            game.set_suv_wolf_num() # wolf生存者数を計算
+            game.set_suv_wolf_num()  # wolf生存者数を計算
             for player in game.wolves:
-                target_id = player.get('target_id',None)
+                target_id = player.get('target_id', None)
                 if target_id is not None:
                     game.target_list[target_id].append(player['name'])
                     # ターゲット候補が一人に絞れていたらwolf間でターゲットが合意とみなす
@@ -429,7 +431,7 @@ def action(target_index):
             player['opencasts'][target_index] = comment
             message = game.players[target_index]['name'] + 'は' + comment
             player['done_action'] = True
-            emit('message', {'msg': message, 'casts': player['opencasts']}, room=player['sid'])
+            emit('message', {'msg': message, 'opencasts': player['opencasts']}, room=player['sid'])
 
         elif player['cast'].name in ['騎士']:
             game.players[target_index]['is_protected'] = True
@@ -453,12 +455,12 @@ def next_game():
     game.cast_reset()
     game.phase = '参加受付中'
     message = '参加受付中'
-    emit('message', {'players': game.players_for_player, 'phase': game.phase, 'casts': '', 'msg': message},
+    emit('message', {'players': game.players_for_player, 'phase': game.phase, 'opencasts': '', 'msg': message},
          broadcast=True)
 
 
 @socketio.on('submit GM')
-def give_gm(myindex, index):
+def submit_gm(myindex, index):
     game.players[myindex]['isGM'] = False
     game.players[int(index)]['isGM'] = True
     emit('message', {'players': game.players_for_player}, broadcast=True)
@@ -467,17 +469,6 @@ def give_gm(myindex, index):
 @socketio.on('change cast')
 def change_cast(new_menu):
     game.set_cast_menu(new_menu)
-    # # 市民以外の員数を数えてcast_sumに代入
-    # cast_sum = 0
-    # for castname, num in new_menu.items():
-    #     if castname == '市民':
-    #         continue
-    #     cast_sum += int(num)
-    # # player員数から市民（特殊役でないcast)の員数を計算
-    # vil_num = len(game.players) - cast_sum
-    # if vil_num >= 0:
-    #     new_menu['市民'] = vil_num
-    #     game.cast_menu = new_menu
     emit('message', {'castMenu': game.cast_menu}, broadcast=True)
 
 
