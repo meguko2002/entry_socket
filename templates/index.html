@@ -31,8 +31,8 @@
                             参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
                             :disabled="isVoted || !player.isAlive">追放</button>
-                        <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(index)" :disabled="!targetCandidates[index]"
-                            value="対象"></input>
+                        <input v-if="phase=='深夜'" type="radio" name="targetCand"
+                        v-on:click="action(index)" :disabled="!targetCandidates[index]" value="対象"></input>
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
                             GM</button>
                     </td>
