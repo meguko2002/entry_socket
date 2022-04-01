@@ -30,7 +30,7 @@
                             v-on:click="submitOrNot(index)" :disabled="isBtnDisable(index)">
                             参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
-                            :disabled="isVoted || !player.isAlive">追放</button>
+                            :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand"
                         v-on:click="action(index)" :disabled="!targetCandidates[index]" value="対象"></input>
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
@@ -53,7 +53,7 @@
             <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="!ready">試合開始</button>
             <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
             <button v-if="phase=='参加受付中'" v-on:click=" changeGM">GM交代</button>
-            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!isVoted">結果判定</button>
+            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
             <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
             <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
             <button v-if=gameover v-on:click="nextGame">次の試合</button>
@@ -75,7 +75,7 @@
             </table>
 
             <p>連続ガード<br>
-                <input type="radio" id="renguard_on" name="renga" value=true v-model="renguard" :disabled="phase!='参加受付中'">
+                <input type="radio" id="renguard_on" name="renga" value="true" v-model="renguard" :disabled="phase!='参加受付中'">
                 <label for="renguard_on">あり</label>
                 <input type="radio" id="renguard_off" name="renga" value=false v-model="renguard" :disabled="phase!='参加受付中'">
                 <label for="renguard_off">なし</label>
@@ -109,7 +109,7 @@
                 myName: '',
                 message: '',
                 gmChanging: false,
-                isVoted: false,
+                voted: false,
                 targetCandidates: [], // 各役職の投票対象となるindex
                 targetList: [],
                 castMenu: {},
@@ -215,11 +215,11 @@
                 },
                 vote: function (index) {
                     socket.emit('vote', index)
-                    this.isVoted = true
+                    this.voted = true
                 },
                 judge: function () {
                     socket.emit('judge')
-                    this.isVoted = false
+                    this.voted = false
                 },
                 toMidnight: function () {
                     socket.emit('request action from gm')
