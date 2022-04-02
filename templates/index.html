@@ -23,7 +23,7 @@
                     <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <input v-if="IamGM && phase=='参加者登録'"  type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
+                        <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
                             :value="player.name" v-model="cancelPlayers"></input>
                         <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
                         <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(index)}
@@ -31,8 +31,8 @@
                             参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
                             :disabled="voted || !player.isAlive">追放</button>
-                        <input v-if="phase=='深夜'" type="radio" name="targetCand"
-                        v-on:click="action(index)" :disabled="!targetCandidates[index]" value="対象"></input>
+                        <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(index)"
+                            :disabled="!targetCandidates[index]" value="対象"></input>
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
                             GM</button>
                     </td>
@@ -48,17 +48,6 @@
             </template>
         </template>
 
-        <template v-if="IamGM">
-            <button v-if="phase=='参加者登録'" v-on:click=" submitMember">参加受付へ</button>
-            <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="!ready">試合開始</button>
-            <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
-            <button v-if="phase=='参加受付中'" v-on:click=" changeGM">GM交代</button>
-            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
-            <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
-            <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
-            <button v-if=gameover v-on:click="nextGame">次の試合</button>
-            <button v-on:click="resetGame">リセット</button>
-        </template>
         <p> [[ message ]]</p>
 
         <template id="casting">
@@ -74,18 +63,28 @@
                 </tr>
             </table>
 
-            <p>連続ガード<br>
-                <input type="radio" id="renguard_on" name="renga" value="true" v-model="renguard" :disabled="phase!='参加受付中'">
-                <label for="renguard_on">あり</label>
-                <input type="radio" id="renguard_off" name="renga" value=false v-model="renguard" :disabled="phase!='参加受付中'">
-                <label for="renguard_off">なし</label>
+            <p>連続ガード
+                <select v-model="renguard" v-on:change="emitRenguard">
+                    <option v-for="option in options" v-bind:value="option.value">[[ option.text ]]</option>
+                </select>
             </p>
-            <p>ランシロ<br>
-                <input type="radio" id="nanshiro_on" name="ranshiro"  value=true v-model="ranshiro" :disabled="phase!='参加受付中'">
-                <label for="nanshiro_on">あり</label>
-                <input type="radio" id="nanshiro_off" name="ranshiro" value=false v-model="ranshiro" :disabled="phase!='参加受付中'">
-                <label for="nanshiro_off">なし</label>
+            <p>ランダム白
+                <select v-model="ranshiro" v-on:change="emitRanshiro">
+                    <option v-for="option in options" v-bind:value="option.value">[[ option.text ]]</option>
+                </select>
             </p>
+        </template>
+
+        <template v-if="IamGM">
+            <button v-if="phase=='参加者登録'" v-on:click=" submitMember">参加受付へ</button>
+            <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="!ready">試合開始</button>
+            <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
+            <button v-if="phase=='参加受付中'" v-on:click=" changeGM">GM交代</button>
+            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
+            <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
+            <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
+            <button v-if=gameover v-on:click="nextGame">次の試合</button>
+            <button v-on:click="resetGame">リセット</button>
         </template>
     </div>
 
@@ -107,7 +106,7 @@
                 casts: [],
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
-                message: '',
+                message: '自分の名前横の参加ボタンを押してください',
                 gmChanging: false,
                 voted: false,
                 targetCandidates: [], // 各役職の投票対象となるindex
@@ -115,15 +114,11 @@
                 castMenu: {},
                 renguard: false,
                 ranshiro: true,
-                cancelPlayers:[]
-            },
-            watch: {
-                renguard: function () {
-                    socket.emit('set renguard', this.renguard)
-                },
-                ranshiro: function () {
-                    socket.emit('set ranshiro', this.ranshiro)
-                },
+                cancelPlayers: [],
+                options: [
+                    { text: 'なし', value: false },
+                    { text: 'あり', value: true },
+                ]
             },
 
             computed: {
@@ -243,6 +238,12 @@
                 },
                 countupdown: function () {
                     socket.emit('change cast', this.castMenu)
+                },
+                emitRenguard: function () {
+                    socket.emit('set renguard', this.renguard)
+                },
+                emitRanshiro: function () {
+                    socket.emit('set renguard', this.renguard)
                 },
             },
             mounted: function () {

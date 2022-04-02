@@ -192,13 +192,13 @@ def decline():
 
 @socketio.on('set renguard')
 def set_renguard(renguard):
-    game.renguard = json.loads(renguard)
+    game.renguard = renguard
     emit('message', {'renguard': game.renguard}, broadcast=True)
 
 
 @socketio.on('set ranshiro')
 def set_ranshiro(ranshiro):
-    game.ranshiro = json.loads(ranshiro)  # jsonで帰ってくる"true"は文字列なのでpythonのboolであるTrueに変換
+    game.ranshiro = ranshiro
     emit('message', {'ranshiro': game.ranshiro}, broadcast=True)
 
 
@@ -226,7 +226,7 @@ def assign_cast(cast_menu):
                 elif p == ranshiro_player:
                     player['opencasts'].append('人狼ではない')
                 else:
-                    player['opencasts'].append(False)
+                    player['opencasts'].append('')
         else:
             player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
 
@@ -275,7 +275,7 @@ def response_action():
                 message = '誰を襲いますか'
             elif player['cast']['name'] in ['占い師']:
                 player['done_action'] = False
-                target_candidates = [False if p == player or (not p.get('isAlive', False)) else True for p in
+                target_candidates = [False if p == player or not p['isAlive'] else True for p in
                                      game.players]
                 message = '誰を占いますか'
             elif player['cast']['name'] in ['騎士']:
@@ -287,8 +287,7 @@ def response_action():
                     elif not p.get('isAlive', False):
                         target_candidates.append(False)
                     elif not game.renguard:  # もし連続ガード禁止だったら前の晩に守られていた場合は護衛候補にならない
-                        if p.get('is_protected', False):
-                            target_candidates.append(False)
+                        target_candidates.append(not p.get('is_protected', False))
                     else:
                         target_candidates.append(True)
                 message = '誰を守りますか'
