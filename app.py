@@ -2,7 +2,6 @@
 from flask import Flask, render_template, jsonify, session, request
 from flask_socketio import SocketIO, emit, leave_room, join_room
 import random
-import json
 import pandas as pd
 
 app = Flask(__name__)
@@ -217,16 +216,15 @@ def assign_cast(cast_menu):
         if player['cast']['name'] in ['人狼', '狂信者']:  # 送り先が人狼または狂信者だったら
             player['opencasts'] = ['人狼' if p['cast']['name'] == '人狼' else '' for p in game.players]
 
-        elif player['cast']['name'] == '占い師' and game.ranshiro:
-            ranshiro_player = random.choice(game.citizens)
-            player['opencasts'] = []
-            for p in game.players:
-                if p == player:
-                    player['opencasts'].append(player['cast']['name'])
-                elif p == ranshiro_player:
-                    player['opencasts'].append('人狼ではない')
-                else:
-                    player['opencasts'].append('')
+        elif (player['cast']['name'] == '占い師') and game.ranshiro:
+            player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
+            if game.ranshiro:
+                ranshiro_players = random.sample(game.citizens,2)
+                ranshiro_player = ranshiro_players[0] if ranshiro_players[0] != player else ranshiro_players[1]
+                for i,p in enumerate(game.players):
+                    if p == ranshiro_player:
+                        player['opencasts'][i] ='人狼ではない'
+                        break
         else:
             player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
 
