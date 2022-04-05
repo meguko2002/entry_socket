@@ -101,9 +101,12 @@ class Game:
         for player in self.players:
             # GJ出なければplayerは被襲撃
             if player['isAlive']:
-                if player.get('is_targeted') and not player.get('is_protected'):
-                    player['isAlive'] = False
-                    self.dead_players.append(player)
+                if player.get('is_targeted'):
+                    if player.get('is_protected'):
+                        player['is_protected'] = False
+                    else:
+                        player['isAlive'] = False
+                        self.dead_players.append(player)
             player['is_targeted'] = False
 
     def player_reset(self):
@@ -250,7 +253,7 @@ def judge():
                      'msg': message, 'target_list': game.target_list}, broadcast=True)
 
 
-@socketio.on('request action from gm')
+@socketio.on('offer choices')
 def response_action():
     game.phase = '深夜'
     for player in game.players:
@@ -284,8 +287,8 @@ def response_action():
                         target_candidates.append(False)
                     elif not p.get('isAlive', False):
                         target_candidates.append(False)
-                    elif not game.renguard:  # もし連続ガード禁止だったら前の晩に守られていた場合は護衛候補にならない
-                        target_candidates.append(not p.get('is_protected', False))
+                    elif game.renguard and p == player.get('last_protect'):  # 連続ガード禁止で前の晩に守った人は護衛候補にならない
+                        target_candidates.append(False)
                     else:
                         target_candidates.append(True)
                 message = '誰を守りますか'
@@ -324,7 +327,7 @@ def action(target_index):
             for player in game.wolves:
                 emit('message', {'msg': message, 'target_list': game.target_list}, room=player['sid'])
 
-        elif player['cast']['name'] in ['占い師', ]:
+        elif player['cast']['name'] in ['占い師',]:
             if game.players[target_index]['cast']['name'] == '人狼':
                 comment = '人狼'
             else:
@@ -336,6 +339,7 @@ def action(target_index):
 
         elif player['cast']['name'] in ['騎士']:
             game.players[target_index]['is_protected'] = True
+            player['last_protect'] = game.players[target_index]
             message = game.players[target_index]['name'] + 'を護衛します'
             player['done_action'] = True
             emit('message', {'msg': message}, room=player['sid'])
