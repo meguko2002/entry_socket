@@ -52,7 +52,7 @@ class Game:
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
         send_keys = ['name', 'isAlive', 'isGM', 'sid']
-        return [{key: p[key] for key in send_keys} for p in players]
+        return [{key: p[key] for key in send_keys} for p in self.players]
 
     def select_cast(self):
         gamecasts = []
@@ -153,11 +153,14 @@ def show_list():
 
 
 @socketio.on('submit member')
-def submit_member(players, cancel_players):
+def submit_member(add_players, cancel_players):
     # 参加者キャンセルのため、各参加者のIDを振りなおす
-    game.players = [player for player in players if not player['name'] in cancel_players]
+    game.players = [player for player in game.players if not player['name'] in cancel_players]
+    for name in add_players:
+        game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'sid': ''})
     game.set_cast_menu()
-    emit('message', {'players': game.players_for_player, 'castMenu': game.cast_menu}, broadcast=True)
+    tmp = game.players_for_player
+    emit('message', {'players': tmp, 'castMenu': game.cast_menu}, broadcast=True)
 
 
 @socketio.on('join')

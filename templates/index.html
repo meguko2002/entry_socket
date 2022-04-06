@@ -24,7 +24,7 @@
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
                         <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
-                            :value="player.name" v-model="cancelPlayers"></input>
+                            :value="player.name" v-model="deletePlayers"></input>
                         <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
                         <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(index)}
                             v-on:click="submitOrNot(index)" :disabled="isBtnDisable(index)">
@@ -43,8 +43,8 @@
                 </tr>
             </table>
             <template v-if="IamGM && phase=='参加者登録'">
-                <input type="text" v-model="playerName" rel="input" v-on:keyup.enter="addMember" placeholder="お名前">
-                <button v-on:click="addMember">追加</button>
+                <input type="text" v-model="playerName" rel="input" v-on:keyup.enter="memberAdd" placeholder="お名前">
+                <button v-on:click="memberAdd">追加</button>
             </template>
         </template>
 
@@ -114,7 +114,8 @@
                 castMenu: {},
                 renguard: false,
                 ranshiro: true,
-                cancelPlayers: [],
+                deletePlayers: [],
+                addPlayers: [],
                 options: [
                     { text: 'なし', value: false },
                     { text: 'あり', value: true },
@@ -222,13 +223,16 @@
                 nextGame: function () {
                     socket.emit('next game')
                 },
-                addMember: function () {
-                    this.players.push({ 'name': this.playerName, 'sid': '', 'isAlive': true, 'isGM': false })
+                memberAdd: function () {
+                    this.players.push({ 'name': this.playerName,'sid': '', 'isAlive': true, 'isGM': false })
+                    this.addPlayers.push(this.playerName)
                     this.playerName = ""
                 },
                 submitMember: function () {
                     // 参加を促す人の名前リストを再構成してサーバーに送る
-                    socket.emit('submit member', this.players, this.cancelPlayers)
+                    socket.emit('submit member', this.addPlayers, this.deletePlayers)
+                    this.addPlayers = []
+                    this.deletePlayers=[]
                     this.phase = '参加受付中'
                 },
                 resetGame: function () {
