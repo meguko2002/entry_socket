@@ -262,8 +262,9 @@ def offer_choices():
     for player in game.players:
         if not player.get('isAlive', False):
             player['done_action'] = True
+            target_candidates = [False for p in game.players]
             message = '次のゲームまでお待ちください'
-            emit('message', {'msg': message, 'phase': game.phase}, room=player['sid'])
+            emit('message', {'msg': message, 'phase': game.phase, 'target_candidates': target_candidates})
         else:
             if player['cast']['name'] in ['人狼']:
                 player['done_action'] = False
