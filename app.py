@@ -254,7 +254,7 @@ def judge():
 
 
 @socketio.on('offer choices')
-def response_action():
+def offer_choices():
     game.phase = '深夜'
     for player in game.players:
         if not player.get('isAlive', False):
@@ -287,7 +287,7 @@ def response_action():
                         target_candidates.append(False)
                     elif not p.get('isAlive', False):
                         target_candidates.append(False)
-                    elif game.renguard and p == player.get('last_protect'):  # 連続ガード禁止で前の晩に守った人は護衛候補にならない
+                    elif not game.renguard and p == player.get('last_protect'):  # 連続ガード禁止で前の晩に守った人は護衛候補にならない
                         target_candidates.append(False)
                     else:
                         target_candidates.append(True)
