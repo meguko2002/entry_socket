@@ -174,7 +174,7 @@ def join(index):
 def rejoin(name):
     sid = request.sid
     for player in game.players:
-        if player['name'] == name:
+        if player.get('name') == name:
             player['sid'] = sid
             emit('message', {'players': game.players_for_player}, room=player['sid'])
             break
@@ -187,7 +187,7 @@ def rejoin(name):
 def decline():
     sid = request.sid
     for player in game.players:
-        if player['sid'] == sid:
+        if player.get('sid') == sid:
             player['sid'] = ''
     emit('message', {'players': game.players_for_player}, broadcast=True)
 
