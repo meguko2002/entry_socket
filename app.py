@@ -219,20 +219,19 @@ def assign_cast(cast_menu):
 
     # playerごとにキャストリストopencastsを送る
     for player in game.players:
+        player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
         if player['cast']['name'] in ['人狼', '狂信者']:  # 送り先が人狼または狂信者だったら
-            player['opencasts'] = ['人狼' if p['cast']['name'] == '人狼' else '' for p in game.players]
+            for i,p in enumerate(game.players):
+                if p['cast']['name'] == '人狼':
+                    player['opencasts'][i] = '人狼'
 
         elif (player['cast']['name'] == '占い師') and game.ranshiro:
-            player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
-            if game.ranshiro:
-                ranshiro_players = random.sample(game.citizens,2)
-                ranshiro_player = ranshiro_players[0] if ranshiro_players[0] != player else ranshiro_players[1]
-                for i,p in enumerate(game.players):
-                    if p == ranshiro_player:
-                        player['opencasts'][i] ='人狼ではない'
-                        break
-        else:
-            player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
+            ranshiro_players = random.sample(game.citizens,2)
+            ranshiro_player = ranshiro_players[0] if ranshiro_players[0] != player else ranshiro_players[1]
+            for i,p in enumerate(game.players):
+                if p == ranshiro_player:
+                    player['opencasts'][i] ='人狼ではない'
+                    break
 
         message = player['name'] + 'は' + player['cast']['name']
         emit('message',
@@ -260,11 +259,10 @@ def judge():
 def offer_choices():
     game.phase = '深夜'
     for player in game.players:
-        if not player.get('isAlive', False):
+        if not player.get('isAlive'):
             player['done_action'] = True
             target_candidates = [False for p in game.players]
             message = '次のゲームまでお待ちください'
-            emit('message', {'msg': message, 'phase': game.phase, 'target_candidates': target_candidates})
         else:
             if player['cast']['name'] in ['人狼']:
                 player['done_action'] = False
@@ -289,7 +287,7 @@ def offer_choices():
                 for p in game.players:
                     if p == player:
                         target_candidates.append(False)
-                    elif not p.get('isAlive', False):
+                    elif not p.get('isAlive'):
                         target_candidates.append(False)
                     elif not game.renguard and p == player.get('last_protect'):  # 連続ガード禁止で前の晩に守った人は護衛候補にならない
                         target_candidates.append(False)
@@ -301,7 +299,7 @@ def offer_choices():
                 player['done_action'] = True
                 target_candidates = [False for p in game.players]
                 message = '夜明けまでお待ちください'
-            emit('message', {'msg': message, 'phase': game.phase, 'target_candidates': target_candidates},
+        emit('message', {'msg': message, 'phase': game.phase, 'target_candidates': target_candidates},
                  room=player['sid'])
 
 
@@ -309,8 +307,7 @@ def offer_choices():
 def action(target_index):
     my_index, player = game.search_player(request.sid)
     if not player['done_action']:
-        # if player['cast']['name'] in ['人狼', ]:
-        if player in game.wolves:
+        if player['cast']['name'] in ['人狼', ]:
             message = '誰を襲いますか'
             player['target_id'] = target_index
             # 人狼全員のtargetを洗い出してtarget_list を作成
@@ -339,14 +336,16 @@ def action(target_index):
             player['opencasts'][target_index] = comment
             message = game.players[target_index]['name'] + 'は' + comment
             player['done_action'] = True
-            emit('message', {'msg': message, 'opencasts': player['opencasts']}, room=player['sid'])
+            target_candidates = [False for p in game.players]
+            emit('message', {'msg': message, 'opencasts': player['opencasts'], 'target_candidates':target_candidates}, room=player['sid'])
 
         elif player['cast']['name'] in ['騎士']:
             game.players[target_index]['is_protected'] = True
             player['last_protect'] = game.players[target_index]
             message = game.players[target_index]['name'] + 'を護衛します'
             player['done_action'] = True
-            emit('message', {'msg': message}, room=player['sid'])
+            target_candidates = [False for p in game.players]
+            emit('message', {'msg': message, 'target_candidates':target_candidates}, room=player['sid'])
 
     # 全員のactionが完了した後の処理
     for player in game.players:
