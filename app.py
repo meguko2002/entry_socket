@@ -409,7 +409,7 @@ def disconnect():
 
 
 if __name__ == '__main__':
-    # socketio.run(app, host='localhost', debug=True)
-    socketio.run(app)
+    socketio.run(app, host='localhost', debug=True)
+    # socketio.run(app)
 
 
