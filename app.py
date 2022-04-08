@@ -410,4 +410,8 @@ def disconnect():
 
 if __name__ == '__main__':
     # socketio.run(app, host='localhost', debug=True)
+<<<<<<< HEAD
     socketio.run(app)
+=======
+    socketio.run()
+>>>>>>> 4e227664eb170b166752411419602d6d072bb0ab
