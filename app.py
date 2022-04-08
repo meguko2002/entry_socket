@@ -8,12 +8,15 @@ app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
-players = [{'name': '山口', 'isAlive': True, 'isGM': True, 'sid': '', 'opencast': {}},
-           {'name': '太郎', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'じろ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': '三郎', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': '史郎', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'ポコ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}}]
+players = [{'name': 'さなえ', 'isAlive': True, 'isGM': True, 'sid': '', 'opencast': {}},
+           {'name': 'かのん', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'カイ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'ゆうき', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'かずまさ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': '所', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'マミコ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'きよえ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           ]
 
 
 class Game:
@@ -30,7 +33,7 @@ class Game:
                       ]
         self.phase = '参加受付中'
         self.dead_players = []
-        self.cast_menu = {"人狼": 2, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂人": 0, "狂信者": 0, "市民": 0}
+        self.cast_menu = {"人狼": 2, "占い師": 1, "騎士":1, "霊媒師": 0, "狂人": 1, "狂信者": 0, "市民": 0}
         self.ranshiro = True
         self.renguard = False  # True: 連ガード有り
         self.target_list = []
