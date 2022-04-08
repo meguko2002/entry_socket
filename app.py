@@ -8,12 +8,12 @@ app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
-players = [{'name': '山口', 'isAlive': True, 'isGM': True, 'sid': ''},
-           {'name': '太郎', 'isAlive': True, 'isGM': False, 'sid': ''},
-           {'name': 'じろ', 'isAlive': True, 'isGM': False, 'sid': ''},
-           {'name': '三郎', 'isAlive': True, 'isGM': False, 'sid': ''},
-           {'name': '史郎', 'isAlive': True, 'isGM': False, 'sid': ''},
-           {'name': 'ポコ', 'isAlive': True, 'isGM': False, 'sid': ''}]
+players = [{'name': '山口', 'isAlive': True, 'isGM': True, 'sid': '', 'opencast': {}},
+           {'name': '太郎', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'じろ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': '三郎', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': '史郎', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+           {'name': 'ポコ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}}]
 
 
 class Game:
@@ -23,19 +23,21 @@ class Game:
         self.casts = [{'name': '人狼', 'team': 'black', 'color': 'black'},
                       {'name': '占い師', 'team': 'white', 'color': 'white'},
                       {'name': '騎士', 'team': 'white', 'color': 'white'},
+                      {'name': '霊媒師', 'team': 'white', 'color': 'white'},
                       {'name': '狂人', 'team': 'black', 'color': 'white'},
                       {'name': '狂信者', 'team': 'black', 'color': 'white'},
                       {'name': '市民', 'team': 'white', 'color': 'white'},
                       ]
         self.phase = '参加受付中'
         self.dead_players = []
-        self.cast_menu = {"人狼": 2, "占い師": 0, "騎士": 0, "狂人": 0, "狂信者": 0, "市民": 0}
+        self.cast_menu = {"人狼": 2, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂人": 0, "狂信者": 0, "市民": 0}
         self.ranshiro = True
         self.renguard = False  # True: 連ガード有り
         self.target_list = []
         # [[],[2,3],[],[4],[]] 左の例だと、id2と3の人狼が襲撃候補としてid=1の人を提出している
         self.wolves = []
         self.citizens = []
+        self.outcast = None  # 追放者
 
     def count_suv_wolf(self):
         count = 0
@@ -104,15 +106,16 @@ class Game:
                 if player.get('is_targeted'):
                     if player.get('is_protected'):
                         player['is_protected'] = False
-                    else:
+                    else:  # 生存していて且つ襲撃されて且つ護衛されていないときに限り襲撃貫通
                         player['isAlive'] = False
                         self.dead_players.append(player)
-            player['is_targeted'] = False
+                    player['is_targeted'] = False
 
     def player_reset(self):
         for player in self.players:
             player['isAlive'] = True
             player['cast'] = None
+            player['opencast']={}
 
     def cast_reset(self):
         self.wolves.clear()
@@ -213,37 +216,39 @@ def assign_cast(cast_menu):
     game.phase = '昼'
     game.player_reset()
     game.cast_reset()
+    game.outcast=None
     # キャストの割り当て
     game.select_cast()
     game.set_team()
 
-    # playerごとにキャストリストopencastsを送る
+    # playerごとにキャストリストopencastを送る
     for player in game.players:
-        player['opencasts'] = [player['cast']['name'] if p == player else '' for p in game.players]
+        player['opencast'][player['name']] = player['cast']['name']
         if player['cast']['name'] in ['人狼', '狂信者']:  # 送り先が人狼または狂信者だったら
-            for i,p in enumerate(game.players):
+            for i, p in enumerate(game.players):
                 if p['cast']['name'] == '人狼':
-                    player['opencasts'][i] = '人狼'
+                    player['opencast'][p['name']] = '人狼'
 
         elif (player['cast']['name'] == '占い師') and game.ranshiro:
-            ranshiro_players = random.sample(game.citizens,2)
+            ranshiro_players = random.sample(game.citizens, 2)
             ranshiro_player = ranshiro_players[0] if ranshiro_players[0] != player else ranshiro_players[1]
-            for i,p in enumerate(game.players):
+            for i, p in enumerate(game.players):
                 if p == ranshiro_player:
-                    player['opencasts'][i] ='人狼ではない'
+                    player['opencast'][p['name']] = '人狼ではない'
                     break
 
         message = player['name'] + 'は' + player['cast']['name']
         emit('message',
              {'players': game.players_for_player, 'phase': game.phase, 'msg': message,
-              'opencasts': player['opencasts']},
+              'opencast': player['opencast']},
              room=player['sid'])
 
 
 @socketio.on('vote')
 def vote(index):
-    game.players[index]['isAlive'] = False
-    emit('message', {'msg': game.players[index]['name'] + 'は追放されました', 'players': game.players_for_player},
+    game.outcast = game.players[index]
+    game.outcast['isAlive'] = False
+    emit('message', {'msg': game.outcast['name'] + 'は追放されました', 'players': game.players_for_player},
          broadcast=True)
 
 
@@ -294,18 +299,28 @@ def offer_choices():
                     else:
                         target_candidates.append(True)
                 message = '誰を守りますか'
-
+            elif player['cast']['name'] in ['霊媒師']:
+                # todo 前の昼追放された人が人狼か否かを伝える
+                if game.outcast in game.wolves:
+                    message = game.outcast['name']+'は人狼だった'
+                    player['opencast'][game.outcast['name']] ='人狼'
+                else:
+                    message = game.outcast['name']+'は人狼ではなかった'
+                    player['opencast'][game.outcast['name']] ='人狼ではない'
+                player['done_action'] = True
+                target_candidates = [False for p in game.players]
             else:
                 player['done_action'] = True
                 target_candidates = [False for p in game.players]
                 message = '夜明けまでお待ちください'
-        emit('message', {'msg': message, 'phase': game.phase, 'target_candidates': target_candidates},
-                 room=player['sid'])
+        emit('message', {'msg': message, 'phase': game.phase, 'target_candidates': target_candidates,
+                         'opencast': player['opencast']}, room=player['sid'])
 
 
 @socketio.on('do action')
 def action(target_index):
     my_index, player = game.search_player(request.sid)
+    target_player = [p for i, p in enumerate(game.players) if i == target_index][0]
     if not player['done_action']:
         if player['cast']['name'] in ['人狼', ]:
             message = '誰を襲いますか'
@@ -328,16 +343,17 @@ def action(target_index):
             for player in game.wolves:
                 emit('message', {'msg': message, 'target_list': game.target_list}, room=player['sid'])
 
-        elif player['cast']['name'] in ['占い師',]:
+        elif player['cast']['name'] in ['占い師', ]:
             if game.players[target_index]['cast']['name'] == '人狼':
                 comment = '人狼'
             else:
                 comment = '人狼ではない'
-            player['opencasts'][target_index] = comment
-            message = game.players[target_index]['name'] + 'は' + comment
+            player['opencast'][target_player['name']] = comment
+            message = target_player['name'] + 'は' + comment
             player['done_action'] = True
             target_candidates = [False for p in game.players]
-            emit('message', {'msg': message, 'opencasts': player['opencasts'], 'target_candidates':target_candidates}, room=player['sid'])
+            emit('message', {'msg': message, 'opencast': player['opencast'], 'target_candidates': target_candidates},
+                 room=player['sid'])
 
         elif player['cast']['name'] in ['騎士']:
             game.players[target_index]['is_protected'] = True
@@ -345,7 +361,7 @@ def action(target_index):
             message = game.players[target_index]['name'] + 'を護衛します'
             player['done_action'] = True
             target_candidates = [False for p in game.players]
-            emit('message', {'msg': message, 'target_candidates':target_candidates}, room=player['sid'])
+            emit('message', {'msg': message, 'target_candidates': target_candidates}, room=player['sid'])
 
     # 全員のactionが完了した後の処理
     for player in game.players:
@@ -363,7 +379,7 @@ def next_game():
     game.cast_reset()
     game.phase = '参加受付中'
     message = '参加受付中'
-    emit('message', {'players': game.players_for_player, 'phase': game.phase, 'opencasts': '', 'msg': message},
+    emit('message', {'players': game.players_for_player, 'phase': game.phase, 'opencast': '', 'msg': message},
          broadcast=True)
 
 

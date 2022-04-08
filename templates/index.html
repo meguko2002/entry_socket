@@ -37,7 +37,7 @@
                             GM</button>
                     </td>
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
-                    <td>[[ casts[index] ]]</td>
+                    <td>[[ opencast[player.name] ]]</td>
                     <td v-if="phase =='深夜'||phase =='朝'">[[ targetList[index] ]]
                     </td>
                 </tr>
@@ -103,7 +103,7 @@
             data: {
                 players: [],
                 playerName: '',
-                casts: [],
+                opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
                 message: '自分の名前横の参加ボタンを押してください',
@@ -269,7 +269,7 @@
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
-                    if ("opencasts" in data) { this.casts = data.opencasts }
+                    if ("opencast" in data) { this.opencast = data.opencast }
                     if ("target_candidates" in data) {
                         this.targetCandidates = data.target_candidates
                     }
