@@ -19,7 +19,7 @@
         <h1>[[phase]]</h1>
         <template>
             <table>
-                <tr v-for="(player, index) in players" v-bind:key="index">
+                <tr v-for="(player, index) in players" v-bind:key="player.name">
                     <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
@@ -106,7 +106,7 @@
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
-                message: '自分の名前横の参加ボタンを押してください',
+                message: '',
                 gmChanging: false,
                 voted: false,
                 targetCandidates: [], // 各役職の投票対象となるindex
