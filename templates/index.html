@@ -20,20 +20,20 @@
         <template>
             <table>
                 <tr v-for="(player, index) in players" v-bind:key="player.name">
-                    <td v-bind:class={active:index==myIndex}>[[ index ]]</td>
+                    <td v-bind:class={active:player.name==myName}>[[ index ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
                         <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
                             :value="player.name" v-model="deletePlayers"></input>
                         <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
-                        <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(index)}
-                            v-on:click="submitOrNot(index)" :disabled="isBtnDisable(index)">
+                        <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(player)}
+                            v-on:click="submitOrNot(player)" :disabled="isBtnDisable(player)">
                             参加 </button>
-                        <button v-if="IamGM && phase=='昼'" v-on:click="vote(index)"
+                        <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
                             :disabled="voted || !player.isAlive">追放</button>
-                        <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(index)"
-                            :disabled="!targetCandidates[index]" value="対象"></input>
-                        <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(index)">
+                        <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
+                            :disabled="!targetCandidates.includes(player)" value="対象"></input>
+                        <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(player)">
                             GM</button>
                     </td>
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
@@ -43,7 +43,7 @@
                 </tr>
             </table>
             <template v-if="IamGM && phase=='参加者登録'">
-                <input type="text" v-model="playerName" rel="input" v-on:keyup.enter="memberAdd" placeholder="お名前">
+                <input type="text" v-model="addPlayerName" rel="input" v-on:keyup.enter="memberAdd" placeholder="お名前">
                 <button v-on:click="memberAdd">追加</button>
             </template>
         </template>
@@ -102,14 +102,14 @@
             el: '#app',
             data: {
                 players: [],
-                playerName: '',
+                addPlayerName: '',
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
                 message: '',
                 gmChanging: false,
                 voted: false,
-                targetCandidates: [], // 各役職の投票対象となるindex
+                targetCandidates: [], // 各役職の投票対象となるplayer.name
                 targetList: [],
                 castMenu: {},
                 renguard: false,
@@ -126,18 +126,19 @@
                 notCtrCastnum: function () {
                     return this.phase != '参加受付中'
                 },
-                myIndex: function () {
-                    return this.players.findIndex(p => p.name == this.myName)
-                },
-                gmIndex: function () {
-                    return this.players.findIndex(p => p.isGM)
-                },
+                // myIndex: function () {
+                //     return this.players.findIndex(p => p.name == this.myName)
+                // },
+                // gmIndex: function () {
+                //     return this.players.findIndex(p => p.isGM)
+                // },
                 IamGM: function () {
-                    return this.myIndex == this.gmIndex
+                    // return this.myName == this.gmIndex
+                    return this.myName == this.players.find(p => p.isGM).name
                 },
                 playerActive: function () {
-                    return function (index) {
-                        return this.players[index].sid != ''
+                    return function (player) {
+                        return player.sid != ''
                     }
                 },
                 IamActive: function () {
@@ -150,18 +151,18 @@
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
                 isBtnDisable: function () {
-                    return function (index) {
+                    return function (player) {
                         if (this.IamActive) {  //自分登録済みの場合
-                            return index != this.myIndex        //自分のボタンだけ押せる 
+                            return player.name != this.myName        //自分のボタンだけ押せる 
                         }
                         else {                                     //自分未登録の場合
-                            return this.playerActive(index)           //他の人が登録済みのボタンは押せない
+                            return this.playerActive(player)           //他の人が登録済みのボタンは押せない
                         }
                     }
                 },
                 isVillager: function () {
-                    return function (name) {
-                        return name == '市民'
+                    return function (cast) {
+                        return cast == '市民'
                     }
                 }
             },
@@ -176,20 +177,20 @@
                         })
                         .catch(error => console.log(error))
                 },
-                submitOrNot(index) {
+                submitOrNot(player) {
                     if (this.IamActive) {
                         this.myName = ''
                         sessionStorage.myName = ''
                         socket.emit('decline')
                     }
                     else {
-                        this.myName = this.players[index].name
-                        sessionStorage.myName = this.myName
-                        socket.emit('join', index)
+                        this.myName = player.name
+                        sessionStorage.myName = player.name
+                        socket.emit('join', player.name)
                     }
                 },
-                action: function (index) {
-                    socket.emit('do action', index)
+                action: function (player) {
+                    socket.emit('do action', player.name)
                 },
 
                 // GM用メソッド
@@ -200,8 +201,8 @@
                     this.gmChanging = true
                     this.Message = "どなたにGMを譲りますか"
                 },
-                submitGM: function (index) {
-                    socket.emit('submit GM', this.myIndex, index)
+                submitGM: function (player) {
+                    socket.emit('submit GM', player.name)
                     this.Message = ""
                     this.gmChanging = false
                 },
@@ -209,8 +210,8 @@
 
                     socket.emit('assign cast', this.castMenu)
                 },
-                vote: function (index) {
-                    socket.emit('vote', index)
+                vote: function (player) {
+                    socket.emit('vote', player.name)
                     this.voted = true
                 },
                 judge: function () {
@@ -224,9 +225,9 @@
                     socket.emit('next game')
                 },
                 memberAdd: function () {
-                    this.players.push({ 'name': this.playerName,'sid': '', 'isAlive': true, 'isGM': false })
-                    this.addPlayers.push(this.playerName)
-                    this.playerName = ""
+                    this.players.push({ 'name': this.addPlayerName,'sid': '', 'isAlive': true, 'isGM': false })
+                    this.addPlayers.push(this.addPlayerName)
+                    this.addPlayerName = ""
                 },
                 submitMember: function () {
                     // 参加を促す人の名前リストを再構成してサーバーに送る
