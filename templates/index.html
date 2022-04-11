@@ -32,13 +32,13 @@
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
-                            :disabled="!targetCandidates.includes(player)" value="対象"></input>
+                            :disabled="isNotObjected(player)" value="対象"></input>
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(player)">
                             GM</button>
                     </td>
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ opencast[player.name] ]]</td>
-                    <td v-if="phase =='深夜'||phase =='朝'">[[ targetList[index] ]]
+                    <td v-if="phase =='深夜'||phase =='朝'">[[ targetDict[player.name] ]]
                     </td>
                 </tr>
             </table>
@@ -109,8 +109,8 @@
                 message: '',
                 gmChanging: false,
                 voted: false,
-                targetCandidates: [], // 各役職の投票対象となるplayer.name
-                targetList: [],
+                objects: [], // 各役職の投票対象となるplayer.name
+                targetDict: [],
                 castMenu: {},
                 renguard: false,
                 ranshiro: true,
@@ -163,6 +163,11 @@
                 isVillager: function () {
                     return function (cast) {
                         return cast == '市民'
+                    }
+                },
+                isNotObjected:function(){
+                    return function(player){
+                        return !this.objects.includes(player.name)
                     }
                 }
             },
@@ -271,11 +276,11 @@
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
                     if ("opencast" in data) { this.opencast = data.opencast }
-                    if ("target_candidates" in data) {
-                        this.targetCandidates = data.target_candidates
+                    if ("objects" in data) {
+                        this.objects = data.objects
                     }
-                    if ("target_list" in data) {
-                        this.targetList = data.target_list
+                    if ("target_dict" in data) {
+                        this.targetDict = data.target_dict
                     }
                     if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
                         this.castMenu = data.castMenu
