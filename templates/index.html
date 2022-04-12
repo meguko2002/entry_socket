@@ -12,6 +12,7 @@
         color: #fff;
         background-color: rgba(7, 7, 7, 0.466);
     }
+
 </style>
 
 <body>
@@ -27,8 +28,7 @@
                             :value="player.name" v-model="deletePlayers"></input>
                         <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
                         <button v-if="phase=='参加受付中'" v-bind:class={active:playerActive(player)}
-                            v-on:click="submitOrNot(player)" :disabled="isBtnDisable(player)">
-                            参加 </button>
+                            v-on:click="submitOrNot(player)" :disabled="isBtnDisable(player)"> 参加 </button>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
@@ -38,7 +38,7 @@
                     </td>
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ opencast[player.name] ]]</td>
-                    <td v-if="phase =='深夜'||phase =='朝'">[[ targetDict[player.name] ]]
+                    <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
                     </td>
                 </tr>
             </table>
@@ -48,7 +48,7 @@
             </template>
         </template>
 
-        <p> [[ message ]]</p>
+        <p class="css-test"> [[ message ]]</p>
 
         <template id="casting">
             <table class="table table-bordered">
@@ -110,7 +110,7 @@
                 gmChanging: false,
                 voted: false,
                 objects: [], // 各役職の投票対象となるplayer.name
-                targetDict: [],
+                wolfTarget: [],
                 castMenu: {},
                 renguard: false,
                 ranshiro: true,
@@ -126,12 +126,6 @@
                 notCtrCastnum: function () {
                     return this.phase != '参加受付中'
                 },
-                // myIndex: function () {
-                //     return this.players.findIndex(p => p.name == this.myName)
-                // },
-                // gmIndex: function () {
-                //     return this.players.findIndex(p => p.isGM)
-                // },
                 IamGM: function () {
                     // return this.myName == this.gmIndex
                     return this.myName == this.players.find(p => p.isGM).name
@@ -165,8 +159,8 @@
                         return cast == '市民'
                     }
                 },
-                isNotObjected:function(){
-                    return function(player){
+                isNotObjected: function () {
+                    return function (player) {
                         return !this.objects.includes(player.name)
                     }
                 }
@@ -230,7 +224,7 @@
                     socket.emit('next game')
                 },
                 memberAdd: function () {
-                    this.players.push({ 'name': this.addPlayerName,'sid': '', 'isAlive': true, 'isGM': false })
+                    this.players.push({ 'name': this.addPlayerName, 'sid': '', 'isAlive': true, 'isGM': false })
                     this.addPlayers.push(this.addPlayerName)
                     this.addPlayerName = ""
                 },
@@ -238,7 +232,7 @@
                     // 参加を促す人の名前リストを再構成してサーバーに送る
                     socket.emit('submit member', this.addPlayers, this.deletePlayers)
                     this.addPlayers = []
-                    this.deletePlayers=[]
+                    this.deletePlayers = []
                     this.phase = '参加受付中'
                 },
                 resetGame: function () {
@@ -279,8 +273,8 @@
                     if ("objects" in data) {
                         this.objects = data.objects
                     }
-                    if ("target_dict" in data) {
-                        this.targetDict = data.target_dict
+                    if ("wolf_target" in data) {
+                        this.wolfTarget = data.wolf_target
                     }
                     if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
                         this.castMenu = data.castMenu
@@ -295,6 +289,12 @@
             },
         })
     </script>
+    <style scoped>
+/* これを設定 */
+.css-test {
+  white-space: pre-wrap;
+}
+</style>
 </body>
 
 </html>
