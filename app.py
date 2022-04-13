@@ -138,6 +138,27 @@ class Game:
     def search_player(self, sid):
         return [p for p in self.players if p['sid'] == sid][0]
 
+    def get_wolf_target(self):
+        target_dict = {}
+        for p in self.players:
+            ws = p.get('targetedby')
+            if ws:
+                target_dict[p['name']] = [w['name'] for w in ws]
+        return target_dict
+
+def target_set(wolf, target):
+    pre_target = wolf.get('target')
+    if pre_target:
+        pre_target['targetedby'].remove(wolf)
+
+    targetedby = target.get('targetedby')
+    if targetedby:
+        target['targetedby'].append(wolf)
+    else:
+        target['targetedby'] = [wolf]
+    wolf['target'] = target
+    return True
+
 
 game = Game(players)
 
@@ -273,7 +294,7 @@ def offer_choices():
             player['doing_action'] = False
 
         else:
-            if player['cast']['name'] in ['人狼']:
+            if player in game.wolves:
                 message = '誰を襲いますか'
                 player['doing_action'] = True
                 player['target'] = None
@@ -318,22 +339,19 @@ def action(name):
     if player['doing_action']:
         if player in game.wolves:
             message = '誰を襲いますか'
-            player['target'] = object
-            for wolf in game.wolves:
-                target = wolf.get('target', None)
-                game.wolf_target.get(target['name'],[]).append(wolf['name'])
-                # if target is not None:
-                #     game.wolf_target[target['name']].append(wolf['name'])
-                """wolf_target = {  target_name:[wolf_name,wolf_name],
-                                    target_name:[wolf_name,],
-                                    }
-                """
-                # ターゲット候補が一人に絞れていたらwolf間でターゲットが合意とみなす
-                if len(game.wolf_target[target['name']]) == game.count_suv_wolf():  # wolf生存者数を計算:
-                    target['is_targeted'] = True
-                    message = '襲撃先は' + target['name']
+            target_set(player, object)
+            game.wolf_target = game.get_wolf_target()
+            """wolf_target = {  target_name:[wolf_name,wolf_name],
+                                target_name:[wolf_name,],}            """
+            posted_wolves = [w['name'] for w in game.wolves if w.get('target') is not None]
+            if len(posted_wolves) == game.count_suv_wolf(): # 狼全員の投票しており
+                if len(game.wolf_target) == 1: # 狼全員の投票が一人のターゲットになった時、合意
+                    object['is_targeted'] = True
+                    message = '襲撃先は' + object['name']
                     for w in game.wolves:
                         w['doing_action'] = False
+                        w['target'] = None
+                    object['targetedby'] = None
 
             for p in game.wolves:
                 emit('message', {'msg': message, 'wolf_target': game.wolf_target}, room=p['sid'])
