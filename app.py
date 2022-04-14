@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, jsonify, session, request
-from flask_socketio import SocketIO, emit, leave_room, join_room
+from flask import Flask, render_template, jsonify, request,url_for
+from flask_socketio import SocketIO, emit
 import random
 import pandas as pd
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
+# app.add_url_rule('/favicon.ico',redirect_to=url_for('static', filename='favicon.ico'))
 socketio = SocketIO(app)
 
 players = [{'name': 'さなえ', 'isAlive': True, 'isGM': True, 'sid': '', 'opencast': {}},
@@ -119,6 +120,8 @@ class Game:
         self.citizens.clear()
 
     def set_cast_menu(self, cast_menu=None):
+
+
         if cast_menu is not None:
             self.cast_menu = cast_menu
         # 市民以外の員数を数えてcast_sumに代入
@@ -131,6 +134,7 @@ class Game:
         vil_num = len(game.players) - cast_sum
         if vil_num >= 0:
             self.cast_menu['市民'] = vil_num
+
 
     def player_obj(self, name):
         return [p for p in self.players if p['name'] == name][0]
@@ -178,6 +182,9 @@ def show_list():
                     'renguard': game.renguard
                     })
 
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('favicon.ico')
 
 @socketio.on('submit member')
 def submit_member(add_players, cancel_players):
@@ -396,8 +403,9 @@ def next_game():
 
 @socketio.on('submit GM')
 def submit_gm(name):
+    for player in game.players:
+        player['isGM'] = False
     player = game.player_obj(name)
-    player['isGM'] = False
     player['isGM'] = True
     emit('message', {'players': game.players_for_player}, broadcast=True)
 
@@ -418,5 +426,5 @@ def disconnect():
 
 
 if __name__ == '__main__':
-    # socketio.run(app, host='localhost', debug=True)
-    socketio.run(app, host='0.0.0.0', debug=True)
+    socketio.run(app, host='localhost', debug=True)
+    # socketio.run(app, host='0.0.0.0', debug=True)
