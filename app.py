@@ -38,7 +38,6 @@ class Game:
         self.renguard = False  # True: 連ガードあり
         self.castmiss = 0  # True: 役職欠けあり
         self.wolf_target = {}
-        # [[],[2,3],[],[4],[]] 左の例だと、id2と3の人狼が襲撃候補としてid=1の人を提出している
         self.wolves = []
         self.citizens = []
         self.outcast = None  # 追放者
@@ -65,7 +64,14 @@ class Game:
         for castname, num in self.cast_menu.items():
             for i in range(num):
                 gamecasts.append([x for x in self.casts if x['name'] == castname][0])
-        gamecasts = random.sample(gamecasts, len(self.players))
+        if game.castmiss:
+            while True:
+                gamecasts = random.sample(gamecasts, len(self.players))
+                if gamecasts[-1]['name'] != '人狼':
+                    break
+        else:
+            gamecasts = random.sample(gamecasts, len(self.players))
+
         for player, cast in zip(self.players, gamecasts):
             player['cast'] = cast
 
@@ -128,12 +134,12 @@ class Game:
             if castname == '市民':
                 continue
             non_villager_num += int(num)
-        # player員数から市民（特殊役でないcast)の員数を計算
-        if len(game.players) < non_villager_num - self.castmiss:
+        # ゲーム不成立条件（市民の数が負になる）
+        if non_villager_num > len(game.players) + self.castmiss:
             return
         else:
             self.cast_menu = suggest_menu
-            self.cast_menu['市民'] = len(game.players) - non_villager_num
+            self.cast_menu['市民'] = len(game.players) - non_villager_num + self.castmiss
 
     def player_obj(self, name):
         return [p for p in self.players if p['name'] == name][0]

@@ -58,24 +58,27 @@
                     </td>
                     <td>
                         <input type="number" v-model.number="castMenu[name]" v-on:click=countupdown
-                            :disabled="isVillager(name) || notCtrCastnum" id="name" min="0" max="100">
+                            :disabled="isVillager(name) || notCtrCastnum" id="name" :min="minCastNum(name)" max="100">
                     </td>
                 </tr>
             </table>
 
             <p>連続ガード
                 <select v-model="renguard" v-on:change="emitRenguard">
-                    <option v-for="option in options" v-bind:value="option.value">[[ option.text ]]</option>
+                    <option v-for="option in options" v-bind:value="option.value"
+                    :disabled="notCtrCastnum" >[[ option.text ]]</option>
                 </select>
             </p>
             <p>ランダム白
                 <select v-model="ranshiro" v-on:change="emitRanshiro">
-                    <option v-for="option in options" v-bind:value="option.value">[[ option.text ]]</option>
+                    <option v-for="option in options" v-bind:value="option.value"
+                    :disabled="notCtrCastnum" >[[ option.text ]]</option>
                 </select>
             </p>
             <p>役職欠け
                 <select v-model="castmiss" v-on:change="emitCastMiss">
-                    <option v-for="sw in toggle" v-bind:value="sw.value">[[ sw.text ]]</option>
+                    <option v-for="sw in toggle" v-bind:value="sw.value"
+                    :disabled="notCtrCastnum" >[[ sw.text ]]</option>
                 </select>
             </p>
         </template>
@@ -172,6 +175,11 @@
                 isNotObjected: function () {
                     return function (player) {
                         return !this.objects.includes(player.name)
+                    }
+                },
+                minCastNum: function () {
+                    return function (name){
+                        return (name=='人狼' ? 1 : 0)
                     }
                 }
             },
