@@ -73,6 +73,11 @@
                     <option v-for="option in options" v-bind:value="option.value">[[ option.text ]]</option>
                 </select>
             </p>
+            <p>役職欠け
+                <select v-model="castmiss" v-on:change="emitCastMiss">
+                    <option v-for="sw in toggle" v-bind:value="sw.value">[[ sw.text ]]</option>
+                </select>
+            </p>
         </template>
 
         <template v-if="IamGM">
@@ -114,12 +119,17 @@
                 castMenu: {},
                 renguard: false,
                 ranshiro: true,
+                castmiss: 0,
                 deletePlayers: [],
                 addPlayers: [],
                 options: [
                     { text: 'なし', value: false },
                     { text: 'あり', value: true },
-                ]
+                ],
+                toggle: [
+                    { text: 'なし', value: 0},
+                    { text: 'あり', value: 1 },
+                ],
             },
 
             computed: {
@@ -249,6 +259,9 @@
                 emitRanshiro: function () {
                     socket.emit('set ranshiro', this.ranshiro)
                 },
+                emitCastMiss: function () {
+                    socket.emit('set castmiss', this.castmiss)
+                },
             },
             mounted: function () {
                 axios.get('/player_list')
@@ -284,6 +297,9 @@
                     }
                     if ("renguard" in data) {
                         this.renguard = data.renguard
+                    }
+                    if ("castmiss" in data) {
+                        this.castmiss = data.castmiss
                     }
                 })
             },

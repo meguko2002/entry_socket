@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, jsonify, request,url_for
+from flask import Flask, render_template, jsonify, request, url_for
 from flask_socketio import SocketIO, emit
 import random
 import pandas as pd
 
 app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
-# app.add_url_rule('/favicon.ico',redirect_to=url_for('static', filename='favicon.ico'))
 socketio = SocketIO(app)
 
 players = [{'name': 'さなえ', 'isAlive': True, 'isGM': True, 'sid': '', 'opencast': {}},
@@ -36,7 +35,8 @@ class Game:
         self.dead_players = []
         self.cast_menu = {"人狼": 2, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂人": 1, "狂信者": 0, "市民": 0}
         self.ranshiro = True
-        self.renguard = False  # True: 連ガード有り
+        self.renguard = False  # True: 連ガードあり
+        self.castmiss = 0  # True: 役職欠けあり
         self.wolf_target = {}
         # [[],[2,3],[],[4],[]] 左の例だと、id2と3の人狼が襲撃候補としてid=1の人を提出している
         self.wolves = []
@@ -129,12 +129,11 @@ class Game:
                 continue
             non_villager_num += int(num)
         # player員数から市民（特殊役でないcast)の員数を計算
-        if non_villager_num > len(game.players):
+        if len(game.players) < non_villager_num - self.castmiss:
             return
         else:
             self.cast_menu = suggest_menu
-            self.cast_menu['市民'] = len(game.players)-non_villager_num
-
+            self.cast_menu['市民'] = len(game.players) - non_villager_num
 
     def player_obj(self, name):
         return [p for p in self.players if p['name'] == name][0]
@@ -149,6 +148,7 @@ class Game:
             if ws:
                 target_dict[p['name']] = [w['name'] for w in ws]
         return target_dict
+
 
 def target_set(wolf, target):
     pre_target = wolf.get('target')
@@ -174,21 +174,23 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    # game.set_cast_menu()
+    game.set_cast_menu()
     return jsonify({'phase': game.phase,
                     'players': game.players_for_player,
                     'castMenu': game.cast_menu,
                     'ranshiro': game.ranshiro,
-                    'renguard': game.renguard
+                    'renguard': game.renguard,
+                    'castmiss': game.castmiss,
                     })
+
 
 @app.route('/favicon.ico')
 def favicon():
     return app.send_static_file('favicon.ico')
 
+
 @socketio.on('submit member')
 def submit_member(add_players, cancel_players):
-    # 参加者キャンセルのため、各参加者のIDを振りなおす
     game.players = [player for player in game.players if not player['name'] in cancel_players]
     for name in add_players:
         game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}})
@@ -239,6 +241,13 @@ def set_renguard(renguard):
 def set_ranshiro(ranshiro):
     game.ranshiro = ranshiro
     emit('message', {'ranshiro': game.ranshiro}, broadcast=True)
+
+
+@socketio.on('set castmiss')
+def set_castmiss(castmiss):
+    game.castmiss = int(castmiss)
+    game.set_cast_menu()
+    emit('message', {'castmiss': game.castmiss, 'castMenu': game.cast_menu}, broadcast=True)
 
 
 @socketio.on('assign cast')
@@ -351,8 +360,8 @@ def action(name):
             """wolf_target = {  target_name:[wolf_name,wolf_name],
                                 target_name:[wolf_name,],}            """
             posted_wolves = [w['name'] for w in game.wolves if w.get('target') is not None]
-            if len(posted_wolves) == game.count_suv_wolf(): # 狼全員の投票しており
-                if len(game.wolf_target) == 1: # 狼全員の投票が一人のターゲットになった時、合意
+            if len(posted_wolves) == game.count_suv_wolf():  # 狼全員の投票しており
+                if len(game.wolf_target) == 1:  # 狼全員の投票が一人のターゲットになった時、合意
                     object['is_targeted'] = True
                     message = '襲撃先は' + object['name']
                     for w in game.wolves:
