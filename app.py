@@ -119,21 +119,21 @@ class Game:
         self.wolves.clear()
         self.citizens.clear()
 
-    def set_cast_menu(self, cast_menu=None):
-
-
-        if cast_menu is not None:
-            self.cast_menu = cast_menu
+    def set_cast_menu(self, suggest_menu=None):
+        if suggest_menu is None:
+            suggest_menu = self.cast_menu
         # 市民以外の員数を数えてcast_sumに代入
-        cast_sum = 0
-        for castname, num in self.cast_menu.items():
+        non_villager_num = 0
+        for castname, num in suggest_menu.items():
             if castname == '市民':
                 continue
-            cast_sum += int(num)
+            non_villager_num += int(num)
         # player員数から市民（特殊役でないcast)の員数を計算
-        vil_num = len(game.players) - cast_sum
-        if vil_num >= 0:
-            self.cast_menu['市民'] = vil_num
+        if non_villager_num > len(game.players):
+            return
+        else:
+            self.cast_menu = suggest_menu
+            self.cast_menu['市民'] = len(game.players)-non_villager_num
 
 
     def player_obj(self, name):
@@ -174,7 +174,7 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    game.set_cast_menu()
+    # game.set_cast_menu()
     return jsonify({'phase': game.phase,
                     'players': game.players_for_player,
                     'castMenu': game.cast_menu,
