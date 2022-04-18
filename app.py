@@ -60,18 +60,17 @@ class Game:
         return [{key: p[key] for key in send_keys} for p in self.players]
 
     def select_cast(self):
-        gamecasts = []
+        basecasts = []
         for castname, num in self.cast_menu.items():
             for i in range(num):
-                gamecasts.append([x for x in self.casts if x['name'] == castname][0])
-        if game.castmiss:
-            while True:
-                gamecasts = random.sample(gamecasts, len(self.players))
-                if gamecasts[-1]['name'] != '人狼':
-                    break
-        else:
-            gamecasts = random.sample(gamecasts, len(self.players))
-
+                basecasts.append(castname)
+        # 人狼が役の中に必ず含まれていること（役欠け対応）
+        while True:
+            gamecasts = random.sample(basecasts, len(self.players))
+            if '人狼' not in gamecasts:
+                break
+        assert '人狼' in gamecasts, '人狼が入っていないよ'
+        # ランダムに並べた役をプレイヤーに配る
         for player, cast in zip(self.players, gamecasts):
             player['cast'] = cast
 
@@ -201,8 +200,7 @@ def submit_member(add_players, cancel_players):
     for name in add_players:
         game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}})
     game.set_cast_menu()
-    tmp = game.players_for_player
-    emit('message', {'players': tmp, 'castMenu': game.cast_menu}, broadcast=True)
+    emit('message', {'players': game.players_for_player, 'castMenu': game.cast_menu}, broadcast=True)
 
 
 @socketio.on('join')
