@@ -32,12 +32,7 @@ REGURATION ={4:{'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士"
               'ranshiro': True, 'renguard': False, 'castmiss': 0}
               }
 
-
-class Game:
-    def __init__(self, pls):
-        self.df = pd.DataFrame(pls)
-        self.players = pls
-        self.casts = [{'name': '人狼', 'team': 'black', 'color': 'black'},
+CASTS=[{'name': '人狼', 'team': 'black', 'color': 'black'},
                       {'name': '占い師', 'team': 'white', 'color': 'white'},
                       {'name': '騎士', 'team': 'white', 'color': 'white'},
                       {'name': '霊媒師', 'team': 'white', 'color': 'white'},
@@ -45,6 +40,11 @@ class Game:
                       {'name': '狂信者', 'team': 'black', 'color': 'white'},
                       {'name': '市民', 'team': 'white', 'color': 'white'},
                       ]
+class Game:
+    def __init__(self, pls):
+        self.df = pd.DataFrame(pls)
+        self.players = pls
+        self.casts = CASTS
         self.phase = '参加受付中'
         self.dead_players = []
         self.cast_menu = REGURATION[len(pls)]['cast_menu']
@@ -86,8 +86,8 @@ class Game:
                 break
         assert '人狼' in gamecasts, '人狼が入っていないよ'
         # ランダムに並べた役をプレイヤーに配る
-        for player, cast in zip(self.players, gamecasts):
-            player['cast'] = cast
+        for player, castname in zip(self.players, gamecasts):
+            player['cast'] = [cast for cast in self.casts if cast['name'] == castname][0]
 
     def set_team(self):
         self.citizens = [player for player in self.players if player['cast']['color'] == 'white']
@@ -221,7 +221,6 @@ def submit_member(add_players, cancel_players):
     game.players = [player for player in game.players if not player['name'] in cancel_players]
     for name in add_players:
         game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}})
-    # todo player人数に合わせておすすめのcast_menuを提示
     game.suggest_cast_menu()
     emit('message', {'players': game.players_for_player,
                      'castMenu': game.cast_menu,
