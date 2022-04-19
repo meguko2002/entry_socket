@@ -21,7 +21,7 @@
         <template>
             <table>
                 <tr v-for="(player, index) in players" v-bind:key="player.name">
-                    <td v-bind:class={active:player.name==myName}>[[ index ]]</td>
+                    <td v-bind:class={active:player.name==myName}>[[ index +1 ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
                         <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
@@ -140,8 +140,10 @@
                     return this.phase != '参加受付中'
                 },
                 IamGM: function () {
-                    // return this.myName == this.gmIndex
-                    return this.myName == this.players.find(p => p.isGM).name
+                    if(this.players.some(p => p.isGM)){
+                        return this.myName == this.players.find(p => p.isGM).name
+                    }
+                    return false
                 },
                 playerActive: function () {
                     return function (player) {
@@ -279,6 +281,7 @@
                         this.castMenu = response.data.castMenu
                         this.ranshiro = response.data.ranshiro
                         this.renguard = response.data.renguard
+                        this.castmiss = response.data.castmiss
                     })
                     .catch(error => console.log(error))
                 // リロード対応。sessionStorageにmysidが残っている場合にemit

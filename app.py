@@ -18,6 +18,20 @@ players = [{'name': 'さなえ', 'isAlive': True, 'isGM': True, 'sid': '', 'open
            {'name': 'きよえ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
            ]
 
+REGURATION ={4:{'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 1},
+              'ranshiro':True,'renguard':False,'castmiss':1},
+             5:{'cast_menu': {"人狼": 1,  "狂人": 1,"占い師": 1,  "騎士": 1,"市民": 2},
+              'ranshiro': True, 'renguard': False, 'castmiss': 1},
+             6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 3},
+              'ranshiro': True, 'renguard': False, 'castmiss': 1},
+             7: {'cast_menu': {"人狼": 2, "占い師": 1,  "霊媒師": 1, "騎士": 1, "市民": 3},
+              'ranshiro': True, 'renguard': False, 'castmiss': 1},
+             8: {'cast_menu': {"人狼": 2, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 4},
+              'ranshiro': True, 'renguard': False, 'castmiss': 1},
+             9: {'cast_menu': {"人狼": 2,"狂人": 1,  "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 3},
+              'ranshiro': True, 'renguard': False, 'castmiss': 0}
+              }
+
 
 class Game:
     def __init__(self, pls):
@@ -33,14 +47,20 @@ class Game:
                       ]
         self.phase = '参加受付中'
         self.dead_players = []
-        self.cast_menu = {"人狼": 2, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂人": 1, "狂信者": 0, "市民": 0}
-        self.ranshiro = True
-        self.renguard = False  # True: 連ガードあり
-        self.castmiss = 0  # True: 役職欠けあり
+        self.cast_menu = REGURATION[len(pls)]['cast_menu']
+        self.ranshiro = REGURATION[len(pls)]['ranshiro']
+        self.renguard = REGURATION[len(pls)]['renguard']
+        self.castmiss = REGURATION[len(pls)]['castmiss']  # True: 役職欠けあり
         self.wolf_target = {}
         self.wolves = []
         self.citizens = []
         self.outcast = None  # 追放者
+
+
+    @property
+    def players_for_player(self):  # 配布用players（castは送らない）
+        send_keys = ['name', 'isAlive', 'isGM', 'sid']
+        return [{key: p[key] for key in send_keys} for p in self.players]
 
     def count_suv_wolf(self):
         count = 0
@@ -54,11 +74,6 @@ class Game:
             count += p['isAlive']
         return count
 
-    @property
-    def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name', 'isAlive', 'isGM', 'sid']
-        return [{key: p[key] for key in send_keys} for p in self.players]
-
     def select_cast(self):
         basecasts = []
         for castname, num in self.cast_menu.items():
@@ -67,7 +82,7 @@ class Game:
         # 人狼が役の中に必ず含まれていること（役欠け対応）
         while True:
             gamecasts = random.sample(basecasts, len(self.players))
-            if '人狼' not in gamecasts:
+            if '人狼' in gamecasts:
                 break
         assert '人狼' in gamecasts, '人狼が入っていないよ'
         # ランダムに並べた役をプレイヤーに配る
@@ -124,12 +139,12 @@ class Game:
         self.wolves.clear()
         self.citizens.clear()
 
-    def set_cast_menu(self, suggest_menu=None):
-        if suggest_menu is None:
-            suggest_menu = self.cast_menu
+    def set_cast_menu(self, submitted_menu=None):
+        if submitted_menu is None:
+            submitted_menu = self.cast_menu
         # 市民以外の員数を数えてcast_sumに代入
         non_villager_num = 0
-        for castname, num in suggest_menu.items():
+        for castname, num in submitted_menu.items():
             if castname == '市民':
                 continue
             non_villager_num += int(num)
@@ -137,8 +152,16 @@ class Game:
         if non_villager_num > len(game.players) + self.castmiss:
             return
         else:
-            self.cast_menu = suggest_menu
+            self.cast_menu = submitted_menu
             self.cast_menu['市民'] = len(game.players) - non_villager_num + self.castmiss
+
+    def suggest_cast_menu(self):
+        self.cast_menu = REGURATION[len(self.players)]['cast_menu']
+        self.ranshiro = REGURATION[len(self.players)]['ranshiro']
+        self.renguard = REGURATION[len(self.players)]['renguard']
+        self.castmiss = REGURATION[len(self.players)]['castmiss']  # True: 役職欠けあり
+
+
 
     def player_obj(self, name):
         return [p for p in self.players if p['name'] == name][0]
@@ -179,7 +202,6 @@ def index():
 
 @app.route('/player_list')
 def show_list():
-    game.set_cast_menu()
     return jsonify({'phase': game.phase,
                     'players': game.players_for_player,
                     'castMenu': game.cast_menu,
@@ -199,8 +221,14 @@ def submit_member(add_players, cancel_players):
     game.players = [player for player in game.players if not player['name'] in cancel_players]
     for name in add_players:
         game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}})
-    game.set_cast_menu()
-    emit('message', {'players': game.players_for_player, 'castMenu': game.cast_menu}, broadcast=True)
+    # todo player人数に合わせておすすめのcast_menuを提示
+    game.suggest_cast_menu()
+    emit('message', {'players': game.players_for_player,
+                     'castMenu': game.cast_menu,
+                     'ranshiro': game.ranshiro,
+                     'renguard': game.renguard,
+                     'castmiss': game.castmiss,
+                     }, broadcast=True)
 
 
 @socketio.on('join')
