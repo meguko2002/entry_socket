@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, jsonify, request, url_for
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, jsonify, request
+from flask_socketio import SocketIO, emit,join_room, leave_room
 import random
 import pandas as pd
 
@@ -8,38 +8,40 @@ app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
-players = [{'name': 'さなえ', 'isAlive': True, 'isGM': True, 'sid': '', 'opencast': {}},
-           {'name': 'かのん', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'カイ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'ゆうき', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'かずまさ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': '所', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'マミコ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
-           {'name': 'きよえ', 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}},
+players = [{'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': True,  'opencast': {}},
+           {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
+           {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
+           {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': 'きよえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            ]
 
-REGURATION ={4:{'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 1},
-              'ranshiro':True,'renguard':False,'castmiss':1},
-             5:{'cast_menu': {"人狼": 1,  "狂人": 1,"占い師": 1,  "騎士": 1,"市民": 2},
-              'ranshiro': True, 'renguard': False, 'castmiss': 1},
-             6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 3},
-              'ranshiro': True, 'renguard': False, 'castmiss': 1},
-             7: {'cast_menu': {"人狼": 2, "占い師": 1,  "霊媒師": 1, "騎士": 1, "市民": 3},
-              'ranshiro': True, 'renguard': False, 'castmiss': 1},
-             8: {'cast_menu': {"人狼": 2, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 4},
-              'ranshiro': True, 'renguard': False, 'castmiss': 1},
-             9: {'cast_menu': {"人狼": 2,"狂人": 1,  "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 3},
-              'ranshiro': True, 'renguard': False, 'castmiss': 0}
+REGURATION = {4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 1},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 1},
+              5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 2},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 1},
+              6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 3},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 1},
+              7: {'cast_menu': {"人狼": 2, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 3},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 1},
+              8: {'cast_menu': {"人狼": 2, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 4},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 1},
+              9: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 3},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 0}
               }
 
-CASTS=[{'name': '人狼', 'team': 'black', 'color': 'black'},
-                      {'name': '占い師', 'team': 'white', 'color': 'white'},
-                      {'name': '騎士', 'team': 'white', 'color': 'white'},
-                      {'name': '霊媒師', 'team': 'white', 'color': 'white'},
-                      {'name': '狂人', 'team': 'black', 'color': 'white'},
-                      {'name': '狂信者', 'team': 'black', 'color': 'white'},
-                      {'name': '市民', 'team': 'white', 'color': 'white'},
-                      ]
+CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
+         {'name': '占い師', 'team': 'white', 'color': 'white'},
+         {'name': '騎士', 'team': 'white', 'color': 'white'},
+         {'name': '霊媒師', 'team': 'white', 'color': 'white'},
+         {'name': '狂人', 'team': 'black', 'color': 'white'},
+         {'name': '狂信者', 'team': 'black', 'color': 'white'},
+         {'name': '市民', 'team': 'white', 'color': 'white'},
+         ]
+
+
 class Game:
     def __init__(self, pls):
         self.df = pd.DataFrame(pls)
@@ -56,10 +58,9 @@ class Game:
         self.citizens = []
         self.outcast = None  # 追放者
 
-
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name', 'isAlive', 'isGM', 'sid']
+        send_keys = ['name','isActive', 'isAlive', 'isGM']
         return [{key: p[key] for key in send_keys} for p in self.players]
 
     def count_suv_wolf(self):
@@ -84,8 +85,7 @@ class Game:
             gamecasts = random.sample(basecasts, len(self.players))
             if '人狼' in gamecasts:
                 break
-        assert '人狼' in gamecasts, '人狼が入っていないよ'
-        # ランダムに並べた役をプレイヤーに配る
+        assert '人狼' in gamecasts, '人狼がちゃんと入っているね'
         for player, castname in zip(self.players, gamecasts):
             player['cast'] = [cast for cast in self.casts if cast['name'] == castname][0]
 
@@ -161,13 +161,8 @@ class Game:
         self.renguard = REGURATION[len(self.players)]['renguard']
         self.castmiss = REGURATION[len(self.players)]['castmiss']  # True: 役職欠けあり
 
-
-
     def player_obj(self, name):
         return [p for p in self.players if p['name'] == name][0]
-
-    def search_player(self, sid):
-        return [p for p in self.players if p['sid'] == sid][0]
 
     def get_wolf_target(self):
         target_dict = {}
@@ -218,9 +213,13 @@ def favicon():
 
 @socketio.on('submit member')
 def submit_member(add_players, cancel_players):
-    game.players = [player for player in game.players if not player['name'] in cancel_players]
+    for player in game.players:
+        if player['name'] in cancel_players:
+            emit('message', {'elase_storage': True}, to=player['name'])
+            game.players.remove(player)
+
     for name in add_players:
-        game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'sid': '', 'opencast': {}})
+        game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'opencast': {}})
     game.suggest_cast_menu()
     emit('message', {'players': game.players_for_player,
                      'castMenu': game.cast_menu,
@@ -233,32 +232,34 @@ def submit_member(add_players, cancel_players):
 @socketio.on('join')
 def join(name):
     player = game.player_obj(name)
-    player['sid'] = request.sid
-    message = player['name'] + 'さん、ようこそ'
-    emit('message', {'msg': message, 'mysid': player['sid']}, room=player['sid'])
+    player['isActive'] = True
+    join_room(name)
+    player['message'] = player['name'] + 'さん、ようこそ'
+    emit('message', {'msg': player['message']}, to=player['name'])
     emit('message', {'players': game.players_for_player}, broadcast=True)
 
 
 # リロード対応
 @socketio.on('reload')
-def rejoin(name):
-    sid = request.sid
+def rejoin(name, isActive):
     for player in game.players:
         if player.get('name') == name:
-            player['sid'] = sid
-            emit('message', {'players': game.players_for_player}, room=player['sid'])
+            player['isActive']=isActive
+            emit('message', {'objects': player.get('objects'),
+                             'opencast': player.get('opencast'),
+                             'msg': player.get('message')
+                             }, to=player['name'])
             break
     else:
-        print('合致するsidなし')
+        # ブラウザのsessionStorageに残っている過去の参加者名前を削除
+        emit('message', {'elase_storage': True},to=player['name'])
 
 
 # 参加ボタンを2度押し、ゲーム参加をキャンセルする
 @socketio.on('decline')
-def decline():
-    sid = request.sid
-    for player in game.players:
-        if player.get('sid') == sid:
-            player['sid'] = ''
+def decline(name):
+    player = game.player_obj(name)
+    player['isActive'] = False
     emit('message', {'players': game.players_for_player}, broadcast=True)
 
 
@@ -308,11 +309,11 @@ def assign_cast(cast_menu):
                     player['opencast'][p['name']] = '人狼ではない'
                     break
 
-        message = player['name'] + 'は' + player['cast']['name']
+        player['message'] = player['name'] + 'は' + player['cast']['name']
         emit('message',
-             {'players': game.players_for_player, 'phase': game.phase, 'msg': message,
+             {'players': game.players_for_player, 'phase': game.phase, 'msg': player['message'],
               'opencast': player['opencast']},
-             room=player['sid'])
+             to=player['name'])
 
 
 @socketio.on('vote')
@@ -337,19 +338,19 @@ def offer_choices():
     for player in game.players:
         player['objects'] = []
         if not player.get('isAlive'):
-            message = '次のゲームまでお待ちください'
+            player['message'] = '次のゲームまでお待ちください'
             player['doing_action'] = False
 
         else:
             if player in game.wolves:
-                message = '誰を襲いますか'
+                player['message'] = '誰を襲いますか'
                 player['doing_action'] = True
                 player['target'] = None
                 for p in game.players:
                     if p['isAlive'] and not (p in game.wolves):
                         player['objects'].append(p['name'])
             elif player['cast']['name'] in ['占い師']:
-                message = '誰を占いますか'
+                player['message'] = '誰を占いますか'
                 player['doing_action'] = True
                 for p in game.players:
                     if p['isAlive'] and not (p == player):
@@ -362,30 +363,29 @@ def offer_choices():
                         if not game.renguard and p == player.get('last_protect'):
                             continue
                         player['objects'].append(p['name'])
-                message = '誰を守りますか'
+                player['message'] = '誰を守りますか'
             elif player['cast']['name'] in ['霊媒師']:
-                # todo 前の昼追放された人が人狼か否かを伝える
                 if game.outcast in game.wolves:
-                    message = game.outcast['name'] + 'は人狼だった。\n夜明けまでお待ちください'
+                    player['message'] = game.outcast['name'] + 'は人狼だった。\n夜明けまでお待ちください'
                     player['opencast'][game.outcast['name']] = '人狼'
                 else:
-                    message = game.outcast['name'] + 'は人狼ではなかった。\n夜明けまでお待ちください'
+                    player['message'] = game.outcast['name'] + 'は人狼ではなかった。\n夜明けまでお待ちください'
                     player['opencast'][game.outcast['name']] = '人狼ではない'
                 player['doing_action'] = False
             else:
-                message = '夜明けまでお待ちください'
+                player['message'] = '夜明けまでお待ちください'
                 player['doing_action'] = False
-        emit('message', {'msg': message, 'phase': game.phase, 'objects': player['objects'],
-                         'opencast': player['opencast']}, room=player['sid'])
+        emit('message', {'msg': player['message'], 'phase': game.phase, 'objects': player['objects'],
+                         'opencast': player['opencast']}, to=player['name'])
 
 
 @socketio.on('do action')
-def action(name):
-    player = game.search_player(request.sid)
-    object = game.player_obj(name)
+def action(myname, object_name):
+    player = game.player_obj(myname)
+    object = game.player_obj(object_name)
     if player['doing_action']:
         if player in game.wolves:
-            message = '誰を襲いますか'
+            player['message'] = '誰を襲いますか'
             target_set(player, object)
             game.wolf_target = game.get_wolf_target()
             """wolf_target = {  target_name:[wolf_name,wolf_name],
@@ -394,14 +394,14 @@ def action(name):
             if len(posted_wolves) == game.count_suv_wolf():  # 狼全員の投票しており
                 if len(game.wolf_target) == 1:  # 狼全員の投票が一人のターゲットになった時、合意
                     object['is_targeted'] = True
-                    message = '襲撃先は' + object['name']
+                    player['message'] = '襲撃先は' + object['name']
                     for w in game.wolves:
                         w['doing_action'] = False
                         w['target'] = None
                     object['targetedby'] = None
 
-            for p in game.wolves:
-                emit('message', {'msg': message, 'wolf_target': game.wolf_target}, room=p['sid'])
+            for wolf in game.wolves:
+                emit('message', {'msg': wolf['message'], 'wolf_target': game.wolf_target}, to=wolf['name'])
 
         elif player['cast']['name'] in ['占い師', ]:
             if object['cast']['name'] == '人狼':
@@ -409,17 +409,17 @@ def action(name):
             else:
                 comment = '人狼ではない'
             player['opencast'][object['name']] = comment
-            message = object['name'] + 'は' + comment
+            player['message'] = object['name'] + 'は' + comment
             player['doing_action'] = False
-            emit('message', {'msg': message, 'opencast': player['opencast'], 'objects': []},
-                 room=player['sid'])
+            emit('message', {'msg': player['message'], 'opencast': player['opencast'], 'objects': []},
+                 to=player['name'])
 
         elif player['cast']['name'] in ['騎士']:
             object['is_protected'] = True
             player['last_protect'] = object
-            message = object['name'] + 'を護衛します'
+            player['message'] = object['name'] + 'を護衛します'
             player['doing_action'] = False
-            emit('message', {'msg': message, 'objects': []}, room=player['sid'])
+            emit('message', {'msg': player['message'], 'objects': []}, to=player['name'])
 
     # 全員のactionが完了した後の処理
     for player in game.players:
@@ -454,15 +454,6 @@ def submit_gm(name):
 def change_cast(new_menu):
     game.set_cast_menu(new_menu)
     emit('message', {'castMenu': game.cast_menu}, broadcast=True)
-
-
-@socketio.on('disconnect')
-def disconnect():
-    sid = request.sid
-    for id, player in enumerate(game.players):
-        if player.get('sid') == sid:
-            player['sid'] = ''
-            break
 
 
 if __name__ == '__main__':
