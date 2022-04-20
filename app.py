@@ -85,7 +85,6 @@ class Game:
             gamecasts = random.sample(basecasts, len(self.players))
             if '人狼' in gamecasts:
                 break
-        assert '人狼' in gamecasts, '人狼がちゃんと入っているね'
         for player, castname in zip(self.players, gamecasts):
             player['cast'] = [cast for cast in self.casts if cast['name'] == castname][0]
 
@@ -162,7 +161,30 @@ class Game:
         self.castmiss = REGURATION[len(self.players)]['castmiss']  # True: 役職欠けあり
 
     def player_obj(self, name):
-        return [p for p in self.players if p['name'] == name][0]
+        for p in self.players:
+            if p['name'] == name:
+                return p
+        return None
+
+    def remove_players(self, player_names):
+        for p in self.players:
+            if p['name'] in player_names:
+                self.players.remove(p)
+
+    def add_players(self, add_players):
+        for name in add_players:
+            self.players.append({'name': name, 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}})
+    # for player in game.players:
+    #     if player['name'] in cancel_players:
+    #         emit('message', {'elase_storage': True}, to=player['name'])
+
+    # for p_name in cancel_players:
+    #
+    #     player = game.player_obj(p_name)
+    #     if player is not None:
+    #         emit('message', {'elase_storage': True}, to=player['name'])
+    #         game.players.remove(player)
+
 
     def get_wolf_target(self):
         target_dict = {}
@@ -213,20 +235,11 @@ def favicon():
 
 @socketio.on('submit member')
 def submit_member(add_players, cancel_players):
-    for player in game.players:
-        if player['name'] in cancel_players:
-            emit('message', {'elase_storage': True}, to=player['name'])
-            game.players.remove(player)
-
-    for name in add_players:
-        game.players.append({'name': name, 'isAlive': True, 'isGM': False, 'opencast': {}})
+    game.remove_players(cancel_players)
+    game.add_players(add_players)
     game.suggest_cast_menu()
-    emit('message', {'players': game.players_for_player,
-                     'castMenu': game.cast_menu,
-                     'ranshiro': game.ranshiro,
-                     'renguard': game.renguard,
-                     'castmiss': game.castmiss,
-                     }, broadcast=True)
+    # assert game.castmiss==0, '役職欠けが「あり」のまま'
+    emit('message', {'players': game.players_for_player, 'castMenu': game.cast_menu,'ranshiro': game.ranshiro,'renguard': game.renguard,'castmiss': game.castmiss}, broadcast=True)
 
 
 @socketio.on('join')
