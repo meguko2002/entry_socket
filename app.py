@@ -18,17 +18,17 @@ players = [{'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': Tru
            {'name': 'きよえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            ]
 
-REGURATION = {4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 1},
+REGURATION = {4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0,"狂信者":0, "市民": 1},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 2},
+              5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 2},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "市民": 3},
+              6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0,"狂信者":0, "市民": 3},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              7: {'cast_menu': {"人狼": 2, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 3},
+              7: {'cast_menu': {"人狼": 2, "狂人": 0, "占い師": 1,  "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 3},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              8: {'cast_menu': {"人狼": 2, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 4},
+              8: {'cast_menu': {"人狼": 2, "狂人": 0, "占い師": 1, "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 4},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              9: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "霊媒師": 1, "騎士": 1, "市民": 3},
+              9: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 3},
                   'ranshiro': True, 'renguard': False, 'castmiss': 0}
               }
 
@@ -61,7 +61,14 @@ class Game:
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
         send_keys = ['name','isActive', 'isAlive', 'isGM']
-        return [{key: p[key] for key in send_keys} for p in self.players]
+        res_players=[]
+        for p in self.players:
+            p_select={}
+            for key in send_keys:
+                p_select[key] = p.get(key)
+            res_players.append(p_select)
+        return res_players
+        # return [{key: p[key] for key in send_keys} for p in self.players]
 
     def count_suv_wolf(self):
         count = 0
@@ -166,25 +173,15 @@ class Game:
                 return p
         return None
 
-    def remove_players(self, player_names):
+    def restruct_players(self, add_names, del_names):
+        new_players=[]
         for p in self.players:
-            if p['name'] in player_names:
-                self.players.remove(p)
-
-    def add_players(self, add_players):
-        for name in add_players:
-            self.players.append({'name': name, 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}})
-    # for player in game.players:
-    #     if player['name'] in cancel_players:
-    #         emit('message', {'elase_storage': True}, to=player['name'])
-
-    # for p_name in cancel_players:
-    #
-    #     player = game.player_obj(p_name)
-    #     if player is not None:
-    #         emit('message', {'elase_storage': True}, to=player['name'])
-    #         game.players.remove(player)
-
+            if p['name'] not in del_names:
+                new_players.append(p)
+        for name in add_names:
+            new_player = {'name': name, 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}}
+            new_players.append(new_player)
+        self.players =new_players
 
     def get_wolf_target(self):
         target_dict = {}
@@ -234,12 +231,11 @@ def favicon():
 
 
 @socketio.on('submit member')
-def submit_member(add_players, cancel_players):
-    game.remove_players(cancel_players)
-    game.add_players(add_players)
+def submit_member(add_names, del_names):
+    game.restruct_players(add_names, del_names)
     game.suggest_cast_menu()
-    # assert game.castmiss==0, '役職欠けが「あり」のまま'
-    emit('message', {'players': game.players_for_player, 'castMenu': game.cast_menu,'ranshiro': game.ranshiro,'renguard': game.renguard,'castmiss': game.castmiss}, broadcast=True)
+    emit_players = game.players_for_player
+    emit('message', {'players': emit_players, 'castMenu': game.cast_menu,'ranshiro': game.ranshiro,'renguard': game.renguard,'castmiss': game.castmiss}, broadcast=True)
 
 
 @socketio.on('join')

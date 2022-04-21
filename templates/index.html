@@ -136,6 +136,11 @@
             },
 
             computed: {
+                // submitPlayerNames: function(){
+                //     let names=this.players.map(p => p.name)
+                //     names=names.filter(name => !this.deletePlayers.includes(name))
+                //     return names
+                // },
                 notCtrCastnum: function () {
                     return this.phase != '参加受付中'
                 },
@@ -240,20 +245,11 @@
                     socket.emit('next game')
                 },
                 memberAdd: function () {
-                    this.players.push({ 'name': this.addPlayerName, 'isAlive': true, 'isGM': false })
+                    this.players.push({ 'name': this.addPlayerName})
                     this.addPlayers.push(this.addPlayerName)
                     this.addPlayerName = ""
                 },
                 submitMember: function () {
-                    // 参加を促す人の名前リストを再構成してサーバーに送る
-                    let submitPlayers = this.players.map(player => player.name)
-                    const result = submitPlayers.filter(p)
-                    for(let p_name in submitPlayers){
-                        if(this.deletePlayers.includes(p_name)){
-
-                        }
-                    }
-
                     socket.emit('submit member', this.addPlayers, this.deletePlayers)
                     this.addPlayers = []
                     this.deletePlayers = []
