@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>人狼</title>
+    <title>GM</title>
 </head>
 <style>
     .active {
@@ -38,6 +38,13 @@
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ opencast[player.name] ]]</td>
                     <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
+                    </td>
+                </tr>
+                <tr v-if="IamGM && phase=='昼'">
+                    <td></td>
+                    <td></td>
+                    <td>
+                        <button  v-on:click="vote('')" :disabled="voted" >追放なし</button>
                     </td>
                 </tr>
             </table>
@@ -136,11 +143,6 @@
             },
 
             computed: {
-                // submitPlayerNames: function(){
-                //     let names=this.players.map(p => p.name)
-                //     names=names.filter(name => !this.deletePlayers.includes(name))
-                //     return names
-                // },
                 notCtrCastnum: function () {
                     return this.phase != '参加受付中'
                 },
@@ -231,7 +233,7 @@
                     socket.emit('assign cast', this.castMenu)
                 },
                 vote: function (player) {
-                    socket.emit('vote', player.name)
+                    socket.emit('vote', player!='' ? player.name : '')
                     this.voted = true
                 },
                 judge: function () {

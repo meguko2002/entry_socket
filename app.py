@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, render_template, jsonify, request
-from flask_socketio import SocketIO, emit,join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room, leave_room
 import random
 import pandas as pd
 
@@ -8,28 +8,42 @@ app = Flask(__name__)
 app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
-players = [{'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': True,  'opencast': {}},
-           {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
-           {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
-           {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+players = [{'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 'opencast': {}},
+           {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           # {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           # {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
+           # {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           # {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           # {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            {'name': 'きよえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            ]
 
-REGURATION = {4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0,"狂信者":0, "市民": 1},
+# https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
+REGURATION = {4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 1},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 2},
+              5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 2},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0,"狂信者":0, "市民": 3},
+              6: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 3},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              7: {'cast_menu': {"人狼": 2, "狂人": 0, "占い師": 1,  "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 3},
+              7: {'cast_menu': {"人狼": 2, "狂人": 0, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 3},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              8: {'cast_menu': {"人狼": 2, "狂人": 0, "占い師": 1, "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 4},
+              8: {'cast_menu': {"人狼": 2, "狂人": 0, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 4},
                   'ranshiro': True, 'renguard': False, 'castmiss': 1},
-              9: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "騎士": 1,"霊媒師": 0,"狂信者":0,  "市民": 3},
-                  'ranshiro': True, 'renguard': False, 'castmiss': 0}
+              9: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 3},
+                  'ranshiro': True, 'renguard': False, 'castmiss': 0},
+              10: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 4},
+                   'ranshiro': True, 'renguard': False, 'castmiss': 0},
+              11: {'cast_menu': {"人狼": 2, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 5},
+                   'ranshiro': True, 'renguard': False, 'castmiss': 0},
+              12: {'cast_menu': {"人狼": 3, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 5},
+                   'ranshiro': True, 'renguard': False, 'castmiss': 0},
+              13: {'cast_menu': {"人狼": 3, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 6},
+                   'ranshiro': True, 'renguard': False, 'castmiss': 0},
+              14: {'cast_menu': {"人狼": 3, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 7},
+                   'ranshiro': True, 'renguard': False, 'castmiss': 0},
+              15: {'cast_menu': {"人狼": 3, "狂人": 2, "占い師": 1, "騎士": 1, "霊媒師": 1, "狂信者": 0, "市民": 7},
+                   'ranshiro': True, 'renguard': False, 'castmiss': 0},
               }
 
 CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
@@ -60,10 +74,10 @@ class Game:
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name','isActive', 'isAlive', 'isGM']
-        res_players=[]
+        send_keys = ['name', 'isActive', 'isAlive', 'isGM']
+        res_players = []
         for p in self.players:
-            p_select={}
+            p_select = {}
             for key in send_keys:
                 p_select[key] = p.get(key)
             res_players.append(p_select)
@@ -139,6 +153,7 @@ class Game:
         for player in self.players:
             player['isAlive'] = True
             player['cast'] = None
+            player['last_protected'] = None
             player['opencast'].clear()
 
     def cast_reset(self):
@@ -174,14 +189,14 @@ class Game:
         return None
 
     def restruct_players(self, add_names, del_names):
-        new_players=[]
+        new_players = []
         for p in self.players:
             if p['name'] not in del_names:
                 new_players.append(p)
         for name in add_names:
             new_player = {'name': name, 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}}
             new_players.append(new_player)
-        self.players =new_players
+        self.players = new_players
 
     def get_wolf_target(self):
         target_dict = {}
@@ -235,7 +250,9 @@ def submit_member(add_names, del_names):
     game.restruct_players(add_names, del_names)
     game.suggest_cast_menu()
     emit_players = game.players_for_player
-    emit('message', {'players': emit_players, 'castMenu': game.cast_menu,'ranshiro': game.ranshiro,'renguard': game.renguard,'castmiss': game.castmiss}, broadcast=True)
+    emit('message',
+         {'players': emit_players, 'castMenu': game.cast_menu, 'ranshiro': game.ranshiro, 'renguard': game.renguard,
+          'castmiss': game.castmiss}, broadcast=True)
 
 
 @socketio.on('join')
@@ -253,7 +270,7 @@ def join(name):
 def rejoin(name, isActive):
     for player in game.players:
         if player.get('name') == name:
-            player['isActive']=isActive
+            player['isActive'] = isActive
             emit('message', {'objects': player.get('objects'),
                              'opencast': player.get('opencast'),
                              'msg': player.get('message')
@@ -261,7 +278,7 @@ def rejoin(name, isActive):
             break
     else:
         # ブラウザのsessionStorageに残っている過去の参加者名前を削除
-        emit('message', {'elase_storage': True},to=player['name'])
+        emit('message', {'elase_storage': True}, to=player['name'])
 
 
 # 参加ボタンを2度押し、ゲーム参加をキャンセルする
@@ -327,9 +344,14 @@ def assign_cast(cast_menu):
 
 @socketio.on('vote')
 def vote(name):
-    game.outcast = game.player_obj(name)
-    game.outcast['isAlive'] = False
-    emit('message', {'msg': game.outcast['name'] + 'は追放されました', 'players': game.players_for_player},
+    if name in [p['name'] for p in game.players]:
+        game.outcast = game.player_obj(name)
+        game.outcast['isAlive'] = False
+        msg = game.outcast['name'] + 'は追放されました'
+    else:
+        game.outcast = None
+        msg = '誰も追放されませんでした'
+    emit('message', {'msg': msg, 'players': game.players_for_player},
          broadcast=True)
 
 
@@ -373,7 +395,7 @@ def offer_choices():
                             continue
                         player['objects'].append(p['name'])
                 player['message'] = '誰を守りますか'
-            elif player['cast']['name'] in ['霊媒師']:
+            elif player['cast']['name'] in ['霊媒師'] and game.outcast is not None:
                 if game.outcast in game.wolves:
                     player['message'] = game.outcast['name'] + 'は人狼だった。\n夜明けまでお待ちください'
                     player['opencast'][game.outcast['name']] = '人狼'
