@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GM</title>
+    <title>人狼@zoom</title>
 </head>
 <style>
     .active {
@@ -288,7 +288,7 @@
                     .catch(error => console.log(error))
                 // リロード対応。sessionStorageにmysidが残っている場合にemit
                 if (sessionStorage.myName) {
-                    // this.myName = sessionStorage.myName
+                    this.myName = sessionStorage.myName
                     socket.emit('reload', sessionStorage.myName, sessionStorage.isActive)
                 }
                 socket.on('message', (data) => {

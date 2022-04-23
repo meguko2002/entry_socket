@@ -275,7 +275,8 @@ def rejoin(name, isActive):
                              'opencast': player.get('opencast'),
                              'msg': player.get('message')
                              }, to=player['name'])
-            break
+            # emit('message', {'players': game.players_for_player,'msg':'届いてる？'}, broadcast=True)
+
     else:
         # ブラウザのsessionStorageに残っている過去の参加者名前を削除
         emit('message', {'elase_storage': True}, to=player['name'])
