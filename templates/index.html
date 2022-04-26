@@ -44,7 +44,7 @@
                     <td></td>
                     <td></td>
                     <td>
-                        <button  v-on:click="vote('')" :disabled="voted" >追放なし</button>
+                        <button v-on:click="vote('')" :disabled="voted">追放なし</button>
                     </td>
                 </tr>
             </table>
@@ -106,7 +106,9 @@
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
         integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
         crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- <script src="https://unpkg.com/axios/dist/axios.min.js"></script> -->
+    <script src="https://www.promisejs.org/polyfills/promise-7.0.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
     <script>
         const socket = io();
@@ -139,7 +141,6 @@
                     { text: 'なし', value: 0 },
                     { text: 'あり', value: 1 },
                 ],
-                // IamActive: false
             },
 
             computed: {
@@ -159,7 +160,7 @@
                 },
                 IamActive: function () {
                     // return !this.myName == ''
-                    if(this.myName == ''){
+                    if (this.myName == '') {
                         return false
                     }
                     return this.players.find(p => p.name == this.myName).isActive
@@ -202,7 +203,7 @@
                         this.myName = ''
                         sessionStorage.myName = ''
                         sessionStorage.isActive = false
-                        socket.emit('decline',player.name)
+                        socket.emit('decline', player.name)
                     }
                     else {
                         this.myName = player.name
@@ -212,7 +213,7 @@
                     }
                 },
                 action: function (player) {
-                    socket.emit('do action', this.myName,player.name)
+                    socket.emit('do action', this.myName, player.name)
                 },
 
                 // GM用メソッド
@@ -233,7 +234,7 @@
                     socket.emit('assign cast', this.castMenu)
                 },
                 vote: function (player) {
-                    socket.emit('vote', player!='' ? player.name : '')
+                    socket.emit('vote', player != '' ? player.name : '')
                     this.voted = true
                 },
                 judge: function () {
@@ -247,7 +248,7 @@
                     socket.emit('next game')
                 },
                 memberAdd: function () {
-                    this.players.push({ 'name': this.addPlayerName})
+                    this.players.push({ 'name': this.addPlayerName })
                     this.addPlayers.push(this.addPlayerName)
                     this.addPlayerName = ""
                 },
@@ -276,16 +277,19 @@
                 },
             },
             mounted: function () {
+                var self=this;
                 axios.get('/player_list')
-                    .then(response => {
-                        this.phase = response.data.phase
-                        this.players = response.data.players
-                        this.castMenu = response.data.castMenu
-                        this.ranshiro = response.data.ranshiro
-                        this.renguard = response.data.renguard
-                        this.castmiss = response.data.castmiss
+                    .then(function(response){
+                        self.phase = response.data.phase
+                        self.players = response.data.players
+                        self.castMenu = response.data.castMenu
+                        self.ranshiro = response.data.ranshiro
+                        self.renguard = response.data.renguard
+                        self.castmiss = response.data.castmiss
                     })
-                    .catch(error => console.log(error))
+                    .catch(function(error){
+                        console.log(error)
+                    });
                 // リロード対応。sessionStorageにmysidが残っている場合にemit
                 if (sessionStorage.myName) {
                     this.myName = sessionStorage.myName
