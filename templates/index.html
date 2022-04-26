@@ -159,7 +159,6 @@
                     }
                 },
                 IamActive: function () {
-                    // return !this.myName == ''
                     if (this.myName == '') {
                         return false
                     }
@@ -280,6 +279,7 @@
                 var self=this;
                 axios.get('/player_list')
                     .then(function(response){
+                        console.log(response.data)
                         self.phase = response.data.phase
                         self.players = response.data.players
                         self.castMenu = response.data.castMenu
