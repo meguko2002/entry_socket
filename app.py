@@ -20,7 +20,9 @@ players = [{'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 
            ]
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
-REGURATION = {4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 1},
+REGURATION = {3: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 2},
+                  'ranshiro': True, 'renguard': False, 'castmiss': False},
+              4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 1},
                   'ranshiro': True, 'renguard': False, 'castmiss': True},
               5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 2},
                   'ranshiro': True, 'renguard': False, 'castmiss': True},
@@ -81,6 +83,7 @@ class Game:
             for key in send_keys:
                 p_select[key] = p.get(key)
             res_players.append(p_select)
+        print(res_players)
         return res_players
         # return [{key: p[key] for key in send_keys} for p in self.players]
 

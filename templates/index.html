@@ -246,6 +246,11 @@
                     this.addPlayerName = ""
                 },
                 submitMember: function () {
+                    console.log(this.players.length-this.deletePlayers.length)
+                    if(this.players.length-this.deletePlayers.length<3){
+                        alert('参加者は3人以上必要です')
+                        return 
+                    }
                     socket.emit('submit member', this.addPlayers, this.deletePlayers)
                     this.addPlayers = []
                     this.deletePlayers = []
