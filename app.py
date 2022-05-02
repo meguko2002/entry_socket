@@ -9,10 +9,10 @@ app.secret_key = 'ABCDEFGH'
 socketio = SocketIO(app)
 
 players = [{'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 'opencast': {}},
-           {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           # {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           # {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
+           # {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           # {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+           {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
            # {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            # {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            # {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
@@ -192,7 +192,6 @@ class Game:
         return None
 
     def restruct_players(self, add_names, del_names):
-
         for i, p in enumerate(self.players):
             if p['name'] in del_names:
                 # emit('message', {'elase_storage': True}, to=p['sid'])
@@ -243,10 +242,12 @@ def favicon():
 
 
 @socketio.on('connect')
-def connect():
+def connect(myname):
     print(f'connected {request.sid}')
+    print(myname)
     for p in game.players:
-        if p.get('sid') == request.sid:
+        if p['name'] == myname:
+            p['sid'] = request.sid
             p['message'] = p['name'] + 'さん、おかえりなさい'
             p['isActive'] = True
             emit('message', {'msg': p['message']}, to=p['sid'])
@@ -262,6 +263,7 @@ def connect():
 
 @socketio.on('disconnect')
 def disconnect():
+    msg = None
     print(f'Client disconnected {request.sid}')
     for p in game.players:
         if p.get('sid') == request.sid:

@@ -51,8 +51,8 @@
 
         </template>
         <template v-if="IamGM">
-            <input v-if="phase=='参加者登録'" type="text" v-model="addPlayerName"
-             rel="input" v-on:keyup.enter="memberAdd" placeholder="リターンで連続入力">
+            <input v-if="phase=='参加者登録'" type="text" v-model="addPlayerName" rel="input" v-on:keyup.enter="memberAdd"
+                placeholder="リターンで連続入力">
             <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
             <button v-if="phase=='参加者登録'" v-on:click=" submitMember">登録</button>
         </template>
@@ -110,7 +110,9 @@
         crossorigin="anonymous"></script>
 
     <script>
-        const socket = io();
+        const socket = io({
+            auth: localStorage.myName,
+        });
         Vue.options.delimiters = ['[[', ']]'];
 
         const app = new Vue({
@@ -132,10 +134,6 @@
                 castmiss: 0,
                 deletePlayers: [],
                 addPlayers: [],
-                // options: [
-                //     { text: 'なし', value: false },
-                //     { text: 'あり', value: true },
-                // ],
                 toggle: [
                     { text: 'なし', value: false },
                     { text: 'あり', value: true },
@@ -157,11 +155,11 @@
                         return player.isActive
                     }
                 },
+                I: function(){
+                    return this.players.find(p => p.name == this.myName)
+                },
                 IamActive: function () {
-                    if (this.myName == '') {
-                        return false
-                    }
-                    return this.players.find(p => p.name == this.myName).isActive
+                    return this.I!=undefined ? this.I.isActive : ''
                 },
                 ready: function () {
                     return !this.players.map(player => player.isActive).includes(false)
@@ -171,7 +169,7 @@
                 },
                 isBtnDisable: function () {
                     return function (player) {
-                        if (this.IamActive) {  //自分登録済みの場合
+                        if (this.IamActive) {  //自分が参加登録済みの場合
                             return player.name != this.myName        //自分のボタンだけ押せる 
                         }
                         else {                                     //自分未登録の場合
@@ -246,10 +244,10 @@
                     this.addPlayerName = ""
                 },
                 submitMember: function () {
-                    console.log(this.players.length-this.deletePlayers.length)
-                    if(this.players.length-this.deletePlayers.length<3){
+                    console.log(this.players.length - this.deletePlayers.length)
+                    if (this.players.length - this.deletePlayers.length < 3) {
                         alert('参加者は3人以上必要です')
-                        return 
+                        return
                     }
                     socket.emit('submit member', this.addPlayers, this.deletePlayers)
                     this.addPlayers = []
@@ -275,11 +273,7 @@
                 },
             },
             mounted: function () {
-                // // リロード対応。localStorageにmysidが残っている場合にemit
-                // if (localStorage.myName) {
-                //     this.myName = localStorage.myName
-                //     socket.emit('reload', localStorage.myName, localStorage.isActive)
-                // }
+                this.myName = localStorage.myName
                 socket.on('message', (data) => {
                     console.log(data)
                     if ("phase" in data) { this.phase = data.phase }
