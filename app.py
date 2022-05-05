@@ -1,18 +1,35 @@
-# -*- coding: utf-8 -*-
-from flask import Flask, render_template, jsonify, request
-from flask_socketio import SocketIO, emit, send, join_room, leave_room
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, emit
+from flask_sqlalchemy import SQLAlchemy
 import random
-import pandas as pd
 
 app = Flask(__name__)
-app.secret_key = 'ABCDEFGH'
+app.config['SECRETE_KEY'] = 'ABCDEFTH'
 socketio = SocketIO(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ECHO']=True
+db = SQLAlchemy(app)
+
+
+class Member(db.Model):
+    __tablename__ = 'Member'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text)
+    # price = db.Column(db.Integer)
+
+# app.before_first_requestのデコレータは最初のrequestの時だけデコレートしている関数を実行する
+# https://shigeblog221.com/flask-sqlalchemy/
+# @app.before_first_request
+# def init():
+#     db.create_all()
+
 
 players = [{'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 'opencast': {}},
            # {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            # {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False,  'opencast': {}},
+           {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            # {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            # {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
            # {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
@@ -60,7 +77,6 @@ CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
 
 class Game:
     def __init__(self, pls):
-        self.df = pd.DataFrame(pls)
         self.players = pls
         self.casts = CASTS
         self.phase = '参加受付中'
@@ -194,7 +210,6 @@ class Game:
     def restruct_players(self, add_names, del_names):
         for i, p in enumerate(self.players):
             if p['name'] in del_names:
-                # emit('message', {'elase_storage': True}, to=p['sid'])
                 self.players.remove(p)
                 # 追加の参加者が居れば削除した参加者の並びに挿入
                 if len(add_names) != 0:
