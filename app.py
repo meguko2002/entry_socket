@@ -6,9 +6,9 @@ import random
 app = Flask(__name__)
 app.config['SECRETE_KEY'] = 'ABCDEFTH'
 socketio = SocketIO(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///Test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ECHO']=True
+app.config['SQLALCHEMY_ECHO'] = True
 db = SQLAlchemy(app)
 
 
@@ -18,26 +18,33 @@ class Member(db.Model):
     name = db.Column(db.Text)
     # price = db.Column(db.Integer)
 
+
 # app.before_first_requestのデコレータは最初のrequestの時だけデコレートしている関数を実行する
-# https://shigeblog221.com/flask-sqlalchemy/
+# https://shigeblog221.com/
+#
+# -sqlalchemy/
 # @app.before_first_request
 # def init():
 #     db.create_all()
 
 
-players = [{'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 'opencast': {}},
-           # {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           # {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           # {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           # {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           # {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           {'name': 'きよえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-           ]
+players = [
+    # {'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 'opencast': {}},
+    # {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+    # {'name': 'きよえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
+]
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
-REGURATION = {3: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 2},
+REGURATION = {0: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
+              1: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
+              2: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
+              3: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 2},
                   'ranshiro': True, 'renguard': False, 'castmiss': False},
               4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 1},
                   'ranshiro': True, 'renguard': False, 'castmiss': True},
@@ -228,6 +235,10 @@ class Game:
                 target_dict[p['name']] = [w['name'] for w in ws]
         return target_dict
 
+    def append_player(self, name, sid):
+        player = {'name': name, 'sid': sid, 'isActive': True, 'isAlive': True, 'isGM': False, 'opencast': {}}
+        self.players.append(player)
+
 
 def target_set(wolf, target):
     pre_target = wolf.get('target')
@@ -309,11 +320,18 @@ def submit_member(add_names, del_names):
 def join(name):
     sid = request.sid
     print(f'join {sid}')
-    player = game.player_obj(name)
-    player['isActive'] = True
-    player['sid'] = sid
-    player['message'] = player['name'] + 'さん、ようこそ'
-    emit('message', {'msg': player['message']}, to=player['sid'])
+    game.append_player(name, sid)
+    message = name + 'さん、ようこそ'
+    emit('message', {'msg': message}, to=sid)
+    emit('message', {'players': game.players_for_player}, broadcast=True)
+
+
+@socketio.on('change name')
+def change_name(name):
+    sid = request.sid
+    for p in game.players:
+        if p.get('sid') == sid:
+            p['name'] = name
     emit('message', {'players': game.players_for_player}, broadcast=True)
 
 

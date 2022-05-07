@@ -23,8 +23,6 @@
                     <td v-bind:class={active:player.name==myName}>[[ index +1 ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <button v-if="phase =='参加受付中'" v-bind:class={active:playerActive(player)}
-                            v-on:click="submitOrNot(player)" :disabled="isBtnDisable(player)"> 参加 </button>
                         <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
                             :value="player.name" v-model="deletePlayers"></input>
                         <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label>
@@ -40,13 +38,24 @@
                     <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
                     </td>
                 </tr>
-                <tr v-if="IamGM && phase=='昼'">
+                
+                <tr v-if="phase =='参加受付中' && myId==-1">
+                    <td>[[ players.length+1 ]]</td>
+                    <td>
+                        <input type="text" v-model="myName" placeholder="お名前">
+                    </td>
+                    <td>
+                        <button v-on:click="join" > 参加 </button>
+                    </td>
+                </tr>
+                <tr v-else-if="IamGM && phase=='昼'">
                     <td></td>
                     <td></td>
                     <td>
                         <button v-on:click="vote('')" :disabled="voted">追放なし</button>
-                    </td>
+                    </td> 
                 </tr>
+
             </table>
 
         </template>
@@ -111,7 +120,7 @@
 
     <script>
         const socket = io({
-            auth: localStorage.myName,
+            // auth: sessionStorage.myName,
         });
         Vue.options.delimiters = ['[[', ']]'];
 
@@ -123,6 +132,7 @@
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
+                myId:-1,
                 message: '',
                 gmChanging: false,
                 voted: false,
@@ -155,11 +165,11 @@
                         return player.isActive
                     }
                 },
-                I: function(){
+                I: function () {
                     return this.players.find(p => p.name == this.myName)
                 },
                 IamActive: function () {
-                    return this.I!=undefined ? this.I.isActive : ''
+                    return this.I != undefined ? this.I.isActive : ''
                 },
                 ready: function () {
                     return !this.players.map(player => player.isActive).includes(false)
@@ -189,24 +199,34 @@
                 }
             },
             methods: {
-                submitOrNot(player) {
-                    if (player.isActive) {
-                        this.myName = ''
-                        localStorage.myName = ''
-                        localStorage.isActive = false
-                        socket.emit('decline', player.name)
-                    }
-                    else {
-                        this.myName = player.name
-                        localStorage.myName = player.name
-                        localStorage.isActive = true
-                        socket.emit('join', player.name)
-                    }
+                // submitOrNot(player) {
+                //     if (player.isActive) {
+                //         this.myName = ''
+                //         sessionStorage.myName = ''
+                //         sessionStorage.isActive = false
+                //         socket.emit('decline', player.name)
+                //     }
+                //     else {
+                //         this.myName = player.name
+                //         sessionStorage.myName = player.name
+                //         sessionStorage.isActive = true
+                //         socket.emit('join', player.name)
+                //     }
+                // },
+                join: function () {
+                    // sessionStorage.myName = this.myName
+                    // sessionStorage.isActive = true
+                    this.myId=this.players.length
+                    socket.emit('join', this.myName)
+                },
+                changeName: function () {
+                    // sessionStorage.myName = this.myName
+                    // sessionStorage.isActive = true
+                    socket.emit('change name', this.myName)
                 },
                 action: function (player) {
                     socket.emit('do action', this.myName, player.name)
                 },
-
                 // GM用メソッド
                 changeMember: function () {
                     this.phase = "参加者登録"
@@ -221,7 +241,6 @@
                     this.gmChanging = false
                 },
                 assignCast: function () {
-
                     socket.emit('assign cast', this.castMenu)
                 },
                 vote: function (player) {
@@ -273,9 +292,9 @@
                 },
             },
             mounted: function () {
-                this.myName = localStorage.myName
+                // this.myName = sessionStorage.myName
                 socket.on('message', (data) => {
-                    console.log(data)
+                    // console.log(data)
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
@@ -299,7 +318,7 @@
                         this.castmiss = data.castmiss
                     }
                     if ("elase_storage" in data) {
-                        localStorage.clear()
+                        sessionStorage.clear()
                     }
                 })
             },
