@@ -120,7 +120,7 @@
 
     <script>
         const socket = io({
-            // auth: sessionStorage.myName,
+            auth: sessionStorage.myKey,
         });
         Vue.options.delimiters = ['[[', ']]'];
 
@@ -200,7 +200,7 @@
             },
             methods: {
                 // submitOrNot(player) {
-                //     if (player.isActive) {
+                //     if (trueplayer.isActive) {
                 //         this.myName = ''
                 //         sessionStorage.myName = ''
                 //         sessionStorage.isActive = false
@@ -214,7 +214,7 @@
                 //     }
                 // },
                 join: function () {
-                    // sessionStorage.myName = this.myName
+                    // sessionStorage.key = this.myName
                     // sessionStorage.isActive = true
                     this.myId=this.players.length
                     socket.emit('join', this.myName)
@@ -225,7 +225,7 @@
                     socket.emit('change name', this.myName)
                 },
                 action: function (player) {
-                    socket.emit('do action', this.myName, player.name)
+                    socket.emit('do action', player.name)
                 },
                 // GM用メソッド
                 changeMember: function () {
@@ -291,10 +291,11 @@
                     socket.emit('set castmiss', this.castmiss)
                 },
             },
-            mounted: function () {
+            created: function () {
                 // this.myName = sessionStorage.myName
                 socket.on('message', (data) => {
                     // console.log(data)
+                    if ("key" in data) { sessionStorage.key = data.key }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
