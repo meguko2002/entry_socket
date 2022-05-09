@@ -3,11 +3,9 @@ from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 import random
 import hashlib
+import pprint
 
-dat = 'python' # SHA224のハッシュ値
-
-
-
+dat = 'python'  # SHA224のハッシュ値
 
 app = Flask(__name__)
 app.config['SECRETE_KEY'] = 'ABCDEFTH'
@@ -34,17 +32,7 @@ class Member(db.Model):
 #     db.create_all()
 
 
-players = [
-    # {'name': '山口', 'isActive': False, 'isAlive': True, 'isGM': True, 'opencast': {}},
-    # {'name': 'さなえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': 'かのん', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': 'カイ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': 'ゆうき', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': 'かずまさ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': '所', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': 'マミコ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-    # {'name': 'きよえ', 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}},
-]
+MEMBERS = []
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
 REGURATION = {0: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
@@ -89,15 +77,15 @@ CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
 
 
 class Game:
-    def __init__(self, pls):
-        self.players = pls
+    def __init__(self):
+        self.players = []
         self.casts = CASTS
         self.phase = '参加受付中'
         self.dead_players = []
-        self.cast_menu = REGURATION[len(pls)]['cast_menu']
-        self.ranshiro = REGURATION[len(pls)]['ranshiro']
-        self.renguard = REGURATION[len(pls)]['renguard']
-        self.castmiss = REGURATION[len(pls)]['castmiss']  # True: 役職欠けあり
+        self.cast_menu = None
+        self.ranshiro = None
+        self.renguard = None
+        self.castmiss = None  # True: 役職欠けあり
         self.wolf_target = {}
         self.wolves = []
         self.citizens = []
@@ -112,9 +100,7 @@ class Game:
             for key in send_keys:
                 p_select[key] = p.get(key)
             res_players.append(p_select)
-        print(res_players)
         return res_players
-        # return [{key: p[key] for key in send_keys} for p in self.players]
 
     def count_suv_wolf(self):
         count = 0
@@ -192,7 +178,7 @@ class Game:
         self.wolves.clear()
         self.citizens.clear()
 
-    def set_cast_menu(self, submitted_menu=None):
+    def adjust_citizen_num(self, submitted_menu=None):
         if submitted_menu is None:
             submitted_menu = self.cast_menu
         # 市民以外の員数を数えてcast_sumに代入
@@ -247,19 +233,32 @@ class Game:
                 target_dict[p['name']] = [w['name'] for w in ws]
         return target_dict
 
-    def append_player(self,sid):
+    def append_player(self, sid, name):
         # SHA224のハッシュ値
-        hs = hashlib.sha224((dat+sid).encode()).hexdigest()
-        player = {'name':'','key': hs, 'sid': sid, 'isActive': True, 'isAlive': True, 'isGM': False, 'opencast': {}}
+        hs = hashlib.sha224((dat + sid).encode()).hexdigest()
+        player = {'name': name, 'key': hs, 'sid': sid, 'isActive': True, 'isAlive': True, 'isGM': False, 'opencast': {}}
         self.players.append(player)
         return player
+
+    def gameout(self, sid):
+        p = self.player_by_sid(sid)
+        self.players.remove(p)
+        return p
+
+
+def append_member(name):
+    # SHA224のハッシュ値
+    hs = hashlib.sha224((dat + name).encode()).hexdigest()
+    member = {'name': name, 'key': hs}
+    MEMBERS.append(member)
+    pprint.pprint(MEMBERS)
+    return member
 
 
 def target_set(wolf, target):
     pre_target = wolf.get('target')
     if pre_target:
         pre_target['targetedby'].remove(wolf)
-
     targetedby = target.get('targetedby')
     if targetedby:
         target['targetedby'].append(wolf)
@@ -269,7 +268,7 @@ def target_set(wolf, target):
     return True
 
 
-game = Game(players)
+game = Game()
 
 
 @app.route('/')
@@ -284,14 +283,16 @@ def favicon():
 
 @socketio.on('connect')
 def connect(key):
-    if key is not None:     # 常連が参加
-        for p in game.players:
-            if p.get('key') == key:
-                p['sid'] = request.sid
-                p['message'] = p['name'] + 'さん、おかえりなさい'
-                p['isActive'] = True
-                break
+    commer = None
+    for member in MEMBERS:
+        if member.get('key') == key:  # 常連が参加
+            commer = game.append_player(request.sid, member['name'])
     game.suggest_cast_menu()
+    if commer is not None:
+        message = commer['name'] + 'さんが参加しました'
+        emit('message', {'message': message}, broadcast=True)
+        message = commer['name'] + 'さん、おかえりなさい'
+        emit('message', {'message': message}, to=commer['sid'])
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
                      'castMenu': game.cast_menu,
@@ -304,22 +305,24 @@ def connect(key):
 @socketio.on('disconnect')
 def disconnect():
     p = game.player_by_sid(request.sid)
-    # todo playersからは削除するが、メンバーリストからは削除しない
-    p['isActive'] = False
-    p['message'] = p['name'] + 'さんが退出しました'
-    emit('message', {'msg': p['message'],
-                     'players': game.players_for_player,
-                     'castMenu': game.cast_menu,
-                     }, broadcast=True)
+    if p is not None:
+        game.gameout(request.sid)
+        message = p['name'] + 'さんが退出しました'
+        emit('message', {'msg': message,
+                         'players': game.players_for_player,
+                         'castMenu': game.cast_menu,
+                         }, broadcast=True)
 
 
 @socketio.on('join')
 def join(name):
-    p = game.append_player(request.sid)
-    game.suggest_cast_menu()
-    p['name'] = name
+    # メンバー登録
+    member = append_member(name)
     message = name + 'さん、初めまして'
-    emit('message', {'msg': message}, to=p['sid'])
+    emit('message', {'msg': message, 'key': member['key']}, to=request.sid)
+    # 試合に参加
+    game.append_player(request.sid, name)
+    game.suggest_cast_menu()
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
                      'castMenu': game.cast_menu,
@@ -351,7 +354,7 @@ def set_ranshiro(ranshiro):
 @socketio.on('set castmiss')
 def set_castmiss(castmiss):
     game.castmiss = castmiss
-    game.set_cast_menu()
+    game.adjust_citizen_num()
     emit('message', {'castmiss': game.castmiss, 'castMenu': game.cast_menu}, broadcast=True)
 
 
@@ -530,7 +533,7 @@ def submit_gm(name):
 
 @socketio.on('change cast')
 def change_cast(new_menu):
-    game.set_cast_menu(new_menu)
+    game.adjust_citizen_num(new_menu)
     emit('message', {'castMenu': game.cast_menu}, broadcast=True)
 
 

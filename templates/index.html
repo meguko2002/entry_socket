@@ -38,14 +38,14 @@
                     <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
                     </td>
                 </tr>
-                
+
                 <tr v-if="phase =='参加受付中' && myId==-1">
                     <td>[[ players.length+1 ]]</td>
                     <td>
                         <input type="text" v-model="myName" placeholder="お名前">
                     </td>
                     <td>
-                        <button v-on:click="join" > 参加 </button>
+                        <button v-on:click="join"> 参加 </button>
                     </td>
                 </tr>
                 <tr v-else-if="IamGM && phase=='昼'">
@@ -53,7 +53,7 @@
                     <td></td>
                     <td>
                         <button v-on:click="vote('')" :disabled="voted">追放なし</button>
-                    </td> 
+                    </td>
                 </tr>
 
             </table>
@@ -120,7 +120,7 @@
 
     <script>
         const socket = io({
-            auth: sessionStorage.myKey,
+            auth: sessionStorage.getItem('key')
         });
         Vue.options.delimiters = ['[[', ']]'];
 
@@ -132,7 +132,7 @@
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
-                myId:-1,
+                myId: -1,
                 message: '',
                 gmChanging: false,
                 voted: false,
@@ -199,25 +199,11 @@
                 }
             },
             methods: {
-                // submitOrNot(player) {
-                //     if (trueplayer.isActive) {
-                //         this.myName = ''
-                //         sessionStorage.myName = ''
-                //         sessionStorage.isActive = false
-                //         socket.emit('decline', player.name)
-                //     }
-                //     else {
-                //         this.myName = player.name
-                //         sessionStorage.myName = player.name
-                //         sessionStorage.isActive = true
-                //         socket.emit('join', player.name)
-                //     }
-                // },
                 join: function () {
-                    // sessionStorage.key = this.myName
-                    // sessionStorage.isActive = true
-                    this.myId=this.players.length
-                    socket.emit('join', this.myName)
+                    if (this.myName != '') {
+                        this.myId = this.players.length
+                        socket.emit('join', this.myName)
+                    }
                 },
                 changeName: function () {
                     // sessionStorage.myName = this.myName
@@ -295,7 +281,7 @@
                 // this.myName = sessionStorage.myName
                 socket.on('message', (data) => {
                     // console.log(data)
-                    if ("key" in data) { sessionStorage.key = data.key }
+                    if ("key" in data) { sessionStorage.setItem('key', data.key) }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
