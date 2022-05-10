@@ -93,7 +93,7 @@ class Game:
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name', 'isActive', 'isAlive', 'isGM']
+        send_keys = ['name','pid', 'isActive', 'isAlive', 'isGM']
         res_players = []
         for p in self.players:
             p_select = {}
@@ -233,10 +233,18 @@ class Game:
                 target_dict[p['name']] = [w['name'] for w in ws]
         return target_dict
 
-    def append_player(self, sid, name):
-        # SHA224のハッシュ値
-        hs = hashlib.sha224((dat + sid).encode()).hexdigest()
-        player = {'name': name, 'key': hs, 'sid': sid, 'isActive': True, 'isAlive': True, 'isGM': False, 'opencast': {}}
+    def _get_pid(self):
+        new_pid = 0
+        for i,p in enumerate(self.players):
+            new_pid = i+1
+            if p['pid'] != new_pid:
+                return new_pid
+        return new_pid+1
+
+    def append_player(self, sid, member):
+        pid=self._get_pid()
+        player = {'name': member['name'],'pid':pid, 'key': member['key'], 'sid': sid, 'isActive': True, 'isAlive': True,
+                  'isGM': False, 'opencast': {}}
         self.players.append(player)
         return player
 
@@ -283,16 +291,18 @@ def favicon():
 
 @socketio.on('connect')
 def connect(key):
-    commer = None
+    # commer = None
     for member in MEMBERS:
         if member.get('key') == key:  # 常連が参加
-            commer = game.append_player(request.sid, member['name'])
+            # すでにゲーム参加していなければ参加
+            if member['key'] not in [p['key'] for p in game.players]:
+                commer = game.append_player(request.sid, member)
     game.suggest_cast_menu()
-    if commer is not None:
-        message = commer['name'] + 'さんが参加しました'
-        emit('message', {'message': message}, broadcast=True)
-        message = commer['name'] + 'さん、おかえりなさい'
-        emit('message', {'message': message}, to=commer['sid'])
+    # if commer is not None:
+    #     message = commer['name'] + 'さんが参加しました'
+    #     emit('message', {'message': message}, broadcast=True)
+    #     message = commer['name'] + 'さん、おかえりなさい'
+    #     emit('message', {'message': message}, to=commer['sid'])
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
                      'castMenu': game.cast_menu,
@@ -307,9 +317,7 @@ def disconnect():
     p = game.player_by_sid(request.sid)
     if p is not None:
         game.gameout(request.sid)
-        message = p['name'] + 'さんが退出しました'
-        emit('message', {'msg': message,
-                         'players': game.players_for_player,
+        emit('message', {'players': game.players_for_player,
                          'castMenu': game.cast_menu,
                          }, broadcast=True)
 
@@ -321,7 +329,7 @@ def join(name):
     message = name + 'さん、初めまして'
     emit('message', {'msg': message, 'key': member['key']}, to=request.sid)
     # 試合に参加
-    game.append_player(request.sid, name)
+    game.append_player(request.sid, member)
     game.suggest_cast_menu()
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
@@ -538,5 +546,5 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='localhost', debug=True)
-    # socketio.run(app, host='0.0.0.0', debug=True)
+    # socketio.run(app, host='localhost', debug=True)
+    socketio.run(app, host='0.0.0.0', debug=True)

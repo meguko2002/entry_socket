@@ -20,7 +20,7 @@
         <template>
             <table>
                 <tr v-for="(player, index) in players" v-bind:key="player.name">
-                    <td v-bind:class={active:player.name==myName}>[[ index +1 ]]</td>
+                    <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
                         <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
@@ -39,7 +39,7 @@
                     </td>
                 </tr>
 
-                <tr v-if="phase =='参加受付中' && myId==-1">
+                <tr v-if="phase =='参加受付中' && myKey === ''">
                     <td>[[ players.length+1 ]]</td>
                     <td>
                         <input type="text" v-model="myName" placeholder="お名前">
@@ -120,7 +120,7 @@
 
     <script>
         const socket = io({
-            auth: sessionStorage.getItem('key')
+            auth: sessionStorage.getItem('myKey')
         });
         Vue.options.delimiters = ['[[', ']]'];
 
@@ -132,7 +132,7 @@
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
-                myId: -1,
+                myKey:'',
                 message: '',
                 gmChanging: false,
                 voted: false,
@@ -151,6 +151,9 @@
             },
 
             computed: {
+                myId:function(){
+                    return this.myKey == this.players.find(p => p.key).pid
+                },
                 notCtrCastnum: function () {
                     return this.phase != '参加受付中'
                 },
@@ -165,11 +168,8 @@
                         return player.isActive
                     }
                 },
-                I: function () {
-                    return this.players.find(p => p.name == this.myName)
-                },
                 IamActive: function () {
-                    return this.I != undefined ? this.I.isActive : ''
+                    return this.myKey == this.players.find(p => p.key).isActive
                 },
                 ready: function () {
                     return !this.players.map(player => player.isActive).includes(false)
@@ -201,7 +201,7 @@
             methods: {
                 join: function () {
                     if (this.myName != '') {
-                        this.myId = this.players.length
+                        {#this.myId = this.players.length#}
                         socket.emit('join', this.myName)
                     }
                 },
@@ -278,10 +278,12 @@
                 },
             },
             created: function () {
-                // this.myName = sessionStorage.myName
                 socket.on('message', (data) => {
                     // console.log(data)
-                    if ("key" in data) { sessionStorage.setItem('key', data.key) }
+                    if ("key" in data) {
+                        this.myKey = data.key
+                        sessionStorage.setItem('myKey', this.myKey)
+                    }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("players" in data) { this.players = data.players }
