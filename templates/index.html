@@ -19,7 +19,7 @@
         <h1>[[phase]]</h1>
         <template>
             <table>
-                <tr v-for="(player, index) in players" v-bind:key="player.name">
+                <tr v-for="(player, index) in players" v-bind:key="player.pid">
                     <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
@@ -40,7 +40,7 @@
                 </tr>
 
                 <tr v-if="phase =='参加受付中' && myKey === ''">
-                    <td>[[ players.length+1 ]]</td>
+                    <td></td>
                     <td>
                         <input type="text" v-model="myName" placeholder="お名前">
                     </td>

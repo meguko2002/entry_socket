@@ -235,9 +235,11 @@ class Game:
 
     def _get_pid(self):
         new_pid = 0
-        for i,p in enumerate(self.players):
+        pids = sorted([p['pid'] for p in self.players])
+        print(pids)
+        for i,pid in enumerate(pids):
             new_pid = i+1
-            if p['pid'] != new_pid:
+            if pid != new_pid:
                 return new_pid
         return new_pid+1
 
@@ -259,7 +261,7 @@ def append_member(name):
     hs = hashlib.sha224((dat + name).encode()).hexdigest()
     member = {'name': name, 'key': hs}
     MEMBERS.append(member)
-    pprint.pprint(MEMBERS)
+    # pprint.pprint(MEMBERS)
     return member
 
 
