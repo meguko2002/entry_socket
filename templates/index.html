@@ -279,14 +279,17 @@
             },
             created: function () {
                 socket.on('message', (data) => {
-                    // console.log(data)
                     if ("key" in data) {
                         this.myKey = data.key
                         sessionStorage.setItem('myKey', this.myKey)
                     }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
-                    if ("players" in data) { this.players = data.players }
+                    if ("players" in data) {
+                        this.players = data.players.sort((a,b)=>{
+                            return a.pid-b.pid
+                        })
+                    }
                     if ("opencast" in data) { this.opencast = data.opencast }
                     if ("objects" in data) {
                         this.objects = data.objects
