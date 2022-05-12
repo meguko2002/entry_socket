@@ -293,13 +293,15 @@ def favicon():
 
 @socketio.on('connect')
 def connect(key):
-    # commer = None
-    for member in MEMBERS:
-        if member.get('key') == key:  # 常連が参加
-            # すでにゲーム参加していなければ参加
-            if member['key'] not in [p['key'] for p in game.players]:
-                commer = game.append_player(request.sid, member)
-    game.suggest_cast_menu()
+    if key is not None:
+        for member in MEMBERS:
+            if member['key'] == key:
+                commer = member   # MEMMBERS に登録済みの常連commer が ページリクエストしてきた
+                # commerは、すでにゲーム参加していなければ参加
+                if commer['key'] not in [p['key'] for p in game.players]:
+                    player = game.append_player(request.sid, commer)
+                    emit('message', {'my_name': player['name']}, to=player['sid'])
+                    game.suggest_cast_menu()
     # if commer is not None:
     #     message = commer['name'] + 'さんが参加しました'
     #     emit('message', {'message': message}, broadcast=True)
@@ -319,8 +321,13 @@ def disconnect():
     p = game.player_by_sid(request.sid)
     if p is not None:
         game.gameout(request.sid)
-        emit('message', {'players': game.players_for_player,
+        game.suggest_cast_menu()
+        emit('message', {
+                         'players': game.players_for_player,
                          'castMenu': game.cast_menu,
+                         'ranshiro': game.ranshiro,
+                         'renguard': game.renguard,
+                         'castmiss': game.castmiss,
                          }, broadcast=True)
 
 
@@ -329,7 +336,7 @@ def join(name):
     # メンバー登録
     member = append_member(name)
     message = name + 'さん、初めまして'
-    emit('message', {'msg': message, 'key': member['key']}, to=request.sid)
+    emit('message', {'msg': message, 'key': member['key'], 'my_name':member['name']}, to=request.sid)
     # 試合に参加
     game.append_player(request.sid, member)
     game.suggest_cast_menu()
@@ -548,5 +555,5 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    # socketio.run(app, host='localhost', debug=True)
-    socketio.run(app, host='0.0.0.0', debug=True)
+    socketio.run(app, host='localhost', debug=True)
+    # socketio.run(app, host='0.0.0.0', debug=True)

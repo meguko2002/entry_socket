@@ -39,10 +39,10 @@
                     </td>
                 </tr>
 
-                <tr v-if="phase =='参加受付中' && myKey === ''">
+                <tr v-if="phase =='参加受付中' && myName === ''">
                     <td></td>
                     <td>
-                        <input type="text" v-model="myName" placeholder="お名前">
+                        <input type="text" v-model="submitName" placeholder="お名前">
                     </td>
                     <td>
                         <button v-on:click="join"> 参加 </button>
@@ -75,26 +75,26 @@
                     </td>
                     <td>
                         <input type="number" v-model.number="castMenu[name]" v-on:click=countupdown
-                            :disabled="(name=='市民') || notCtrCastnum" id="name" :min="minCastNum(name)" max="100">
+                            :disabled="(name=='市民') || banCastControll" id="name" :min="minCastNum(name)" max="100">
                     </td>
                 </tr>
             </table>
 
             <p>連続ガード
                 <select v-model="renguard" v-on:change="emitRenguard">
-                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="notCtrCastnum">[[
+                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
                         tg.text ]]</option>
                 </select>
             </p>
             <p>ランダム白
                 <select v-model="ranshiro" v-on:change="emitRanshiro">
-                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="notCtrCastnum">[[
+                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
                         tg.text ]]</option>
                 </select>
             </p>
             <p>役職欠け
                 <select v-model="castmiss" v-on:change="emitCastMiss">
-                    <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="notCtrCastnum">[[ sw.text ]]
+                    <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
                     </option>
                 </select>
             </p>
@@ -131,8 +131,9 @@
                 addPlayerName: '',
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myName: '',
-                myKey:'',
+                myKey: '',
+                myName: '',     // myNameはserverでkeyと照合して与えられる  
+                submitName: '',  // submitNameはserverに名前登録する時にだけ使う変数
                 message: '',
                 gmChanging: false,
                 voted: false,
@@ -151,10 +152,16 @@
             },
 
             computed: {
-                myId:function(){
-                    return this.myKey == this.players.find(p => p.key).pid
+                myData:function () {
+                    return this.players.find((p) => p.name === this.myName)
                 },
-                notCtrCastnum: function () {
+                myId: function () {
+                    if (this.myData===undefined) {
+                        return 0
+                    }
+                    return this.myData.pid
+                },
+                banCastControll: function () {
                     return this.phase != '参加受付中'
                 },
                 IamGM: function () {
@@ -169,7 +176,7 @@
                     }
                 },
                 IamActive: function () {
-                    return this.myKey == this.players.find(p => p.key).isActive
+                    return this.myData.isActive
                 },
                 ready: function () {
                     return !this.players.map(player => player.isActive).includes(false)
@@ -177,21 +184,21 @@
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
-                isBtnDisable: function () {
-                    return function (player) {
-                        if (this.IamActive) {  //自分が参加登録済みの場合
-                            return player.name != this.myName        //自分のボタンだけ押せる 
-                        }
-                        else {                                     //自分未登録の場合
-                            return this.playerActive(player)           //他の人が登録済みのボタンは押せない
-                        }
-                    }
-                },
-                isNotObjected: function () {
-                    return function (player) {
-                        return !this.objects.includes(player.name)
-                    }
-                },
+                // isBtnDisable: function () {
+                //     return function (player) {
+                //         if (this.IamActive) {  //自分が参加登録済みの場合
+                //             return player.name != this.myName        //自分のボタンだけ押せる 
+                //         }
+                //         else {                                     //自分未登録の場合
+                //             return this.playerActive(player)           //他の人が登録済みのボタンは押せない
+                //         }
+                //     }
+                // },
+                // isNotObjected: function () {
+                //     return function (player) {
+                //         return !this.objects.includes(player.name)
+                //     }
+                // },
                 minCastNum: function () {
                     return function (name) {
                         return name == '人狼' ? 1 : 0
@@ -200,9 +207,10 @@
             },
             methods: {
                 join: function () {
-                    if (this.myName != '') {
-                        {#this.myId = this.players.length#}
-                        socket.emit('join', this.myName)
+                    if (this.submitName != '') {
+                        // { #this.myId = this.players.length# }
+                        socket.emit('join', this.submitName)
+                        this.submitName = ''
                     }
                 },
                 changeName: function () {
@@ -278,6 +286,9 @@
                 },
             },
             created: function () {
+                if (sessionStorage.getItem('myKey')) {
+                    this.myKey = sessionStorage.getItem('myKey')
+                }
                 socket.on('message', (data) => {
                     if ("key" in data) {
                         this.myKey = data.key
@@ -285,9 +296,10 @@
                     }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
+                    if ("my_name" in data) { this.myName = data.my_name }
                     if ("players" in data) {
-                        this.players = data.players.sort((a,b)=>{
-                            return a.pid-b.pid
+                        this.players = data.players.sort((a, b) => {
+                            return a.pid - b.pid
                         })
                     }
                     if ("opencast" in data) { this.opencast = data.opencast }
@@ -308,9 +320,6 @@
                     }
                     if ("castmiss" in data) {
                         this.castmiss = data.castmiss
-                    }
-                    if ("elase_storage" in data) {
-                        sessionStorage.clear()
                     }
                 })
             },
