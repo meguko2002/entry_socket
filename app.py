@@ -3,7 +3,6 @@ from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 import random
 import hashlib
-import pprint
 
 dat = 'python'  # SHA224のハッシュ値
 
@@ -90,6 +89,7 @@ class Game:
         self.wolves = []
         self.citizens = []
         self.outcast = None  # 追放者
+        self.suspend_players = []
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
@@ -236,7 +236,6 @@ class Game:
     def _get_pid(self):
         new_pid = 0
         pids = sorted([p['pid'] for p in self.players])
-        print(pids)
         for i,pid in enumerate(pids):
             new_pid = i+1
             if pid != new_pid:
@@ -245,13 +244,15 @@ class Game:
 
     def append_player(self, sid, member):
         pid=self._get_pid()
+        isgm= True if len(self.players)==0 else False
         player = {'name': member['name'],'pid':pid, 'key': member['key'], 'sid': sid, 'isActive': True, 'isAlive': True,
-                  'isGM': False, 'opencast': {}}
+                  'isGM': isgm, 'opencast': {}}
         self.players.append(player)
         return player
 
     def gameout(self, sid):
         p = self.player_by_sid(sid)
+        self.suspend_players.append(p)
         self.players.remove(p)
         return p
 
@@ -261,7 +262,6 @@ def append_member(name):
     hs = hashlib.sha224((dat + name).encode()).hexdigest()
     member = {'name': name, 'key': hs}
     MEMBERS.append(member)
-    # pprint.pprint(MEMBERS)
     return member
 
 
@@ -300,13 +300,15 @@ def connect(key):
                 # commerは、すでにゲーム参加していなければ参加
                 if commer['key'] not in [p['key'] for p in game.players]:
                     player = game.append_player(request.sid, commer)
-                    emit('message', {'my_name': player['name']}, to=player['sid'])
+                    message = player['name'] + 'さん、おかえりなさい'
+                    emit('message', {'my_name': player['name'], 'msg': message}, to=player['sid'])
                     game.suggest_cast_menu()
-    # if commer is not None:
-    #     message = commer['name'] + 'さんが参加しました'
-    #     emit('message', {'message': message}, broadcast=True)
-    #     message = commer['name'] + 'さん、おかえりなさい'
-    #     emit('message', {'message': message}, to=commer['sid'])
+                # commerは、すでにゲーム参加していれば、それまでのplayerDataを引き継ぐ
+                else:
+                    for p in game.suspend_players:
+                        if p['key'] == commer['key']:
+                            game.players.append(p)
+                            game.suggest_cast_menu()
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
                      'castMenu': game.cast_menu,

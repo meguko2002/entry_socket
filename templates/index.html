@@ -59,12 +59,12 @@
             </table>
 
         </template>
-        <template v-if="IamGM">
+        <!-- <template v-if="IamGM">
             <input v-if="phase=='参加者登録'" type="text" v-model="addPlayerName" rel="input" v-on:keyup.enter="memberAdd"
                 placeholder="リターンで連続入力">
             <button v-if="phase=='参加受付中'" v-on:click=" changeMember">参加者変更</button>
             <button v-if="phase=='参加者登録'" v-on:click=" submitMember">登録</button>
-        </template>
+        </template> -->
         <p class="css-test"> [[ message ]]</p>
 
         <template id="casting">
@@ -102,7 +102,7 @@
 
         <template v-if="IamGM">
 
-            <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="!ready">試合開始</button>
+            <button v-if="phase=='参加受付中'" v-on:click=" assignCast" >試合開始</button>
 
             <button v-if="phase=='参加受付中'" v-on:click=" changeGM">GM交代</button>
             <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
@@ -170,17 +170,20 @@
                     }
                     return false
                 },
-                playerActive: function () {
-                    return function (player) {
-                        return player.isActive
-                    }
-                },
+                // playerActive: function () {
+                //     return function (player) {
+                //         return player.isActive
+                //     }
+                // },
                 IamActive: function () {
-                    return this.myData.isActive
+                    if (this.myData===undefined) {
+                        return false
+                    }
+                    return true
                 },
-                ready: function () {
-                    return !this.players.map(player => player.isActive).includes(false)
-                },
+                // ready: function () {
+                //     return !this.players.map(player => player.isActive).includes(false)
+                // },
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
@@ -222,9 +225,9 @@
                     socket.emit('do action', player.name)
                 },
                 // GM用メソッド
-                changeMember: function () {
-                    this.phase = "参加者登録"
-                },
+                // changeMember: function () {
+                //     this.phase = "参加者登録"
+                // },
                 changeGM: function () {
                     this.gmChanging = true
                     this.Message = "どなたにGMを譲りますか"
@@ -251,22 +254,22 @@
                 nextGame: function () {
                     socket.emit('next game')
                 },
-                memberAdd: function () {
-                    this.players.push({ 'name': this.addPlayerName })
-                    this.addPlayers.push(this.addPlayerName)
-                    this.addPlayerName = ""
-                },
-                submitMember: function () {
-                    console.log(this.players.length - this.deletePlayers.length)
-                    if (this.players.length - this.deletePlayers.length < 3) {
-                        alert('参加者は3人以上必要です')
-                        return
-                    }
-                    socket.emit('submit member', this.addPlayers, this.deletePlayers)
-                    this.addPlayers = []
-                    this.deletePlayers = []
-                    this.phase = '参加受付中'
-                },
+                // memberAdd: function () {
+                //     this.players.push({ 'name': this.addPlayerName })
+                //     this.addPlayers.push(this.addPlayerName)
+                //     this.addPlayerName = ""
+                // },
+                // submitMember: function () {
+                //     console.log(this.players.length - this.deletePlayers.length)
+                //     if (this.players.length - this.deletePlayers.length < 3) {
+                //         alert('参加者は3人以上必要です')
+                //         return
+                //     }
+                //     socket.emit('submit member', this.addPlayers, this.deletePlayers)
+                //     this.addPlayers = []
+                //     this.deletePlayers = []
+                //     this.phase = '参加受付中'
+                // },
                 resetGame: function () {
                     if (confirm('本当にリセットしますか')) {
                         this.nextGame()
