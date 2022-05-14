@@ -93,7 +93,7 @@ class Game:
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name','pid', 'isActive', 'isAlive', 'isGM']
+        send_keys = ['name','pid','isAlive', 'isGM']
         res_players = []
         for p in self.players:
             p_select = {}
@@ -212,19 +212,6 @@ class Game:
                 return p
         return None
 
-    def restruct_players(self, add_names, del_names):
-        for i, p in enumerate(self.players):
-            if p['name'] in del_names:
-                self.players.remove(p)
-                # 追加の参加者が居れば削除した参加者の並びに挿入
-                if len(add_names) != 0:
-                    new_p_name = add_names.pop(0)
-                    new_player = {'name': new_p_name, 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}}
-                    self.players.insert(i, new_player)
-        for add_p_name in add_names:
-            new_player = {'name': add_p_name, 'isActive': False, 'isAlive': True, 'isGM': False, 'opencast': {}}
-            self.players.append(new_player)
-
     def get_wolf_target(self):
         target_dict = {}
         for p in self.players:
@@ -244,17 +231,39 @@ class Game:
 
     def append_player(self, sid, member):
         pid=self._get_pid()
-        isgm= True if len(self.players)==0 else False
-        player = {'name': member['name'],'pid':pid, 'key': member['key'], 'sid': sid, 'isActive': True, 'isAlive': True,
-                  'isGM': isgm, 'opencast': {}}
+        is_gm= True if len(self.players)==0 else False
+        player = {'name': member['name'],'pid':pid, 'key': member['key'], 'sid': sid, 'isAlive': True,
+                  'isGM': is_gm, 'opencast': {}}
         self.players.append(player)
+        return player
+
+    def retreave_player(self, sid, member):
+        player = [p for p in self.suspend_players if p['key']==member['key']][0]
+        player['sid']=sid
+        player['isGM']=False    # 抜けている間にほかのだれかがGMをやっているはずだから
+        self.players.append(player)
+        self.suspend_players.remove(player)
         return player
 
     def gameout(self, sid):
         p = self.player_by_sid(sid)
         self.suspend_players.append(p)
         self.players.remove(p)
+        self.gm_check()
         return p
+
+    def gm_check(self):
+        if self.players != []:
+            has_gm=False
+            for p in self.players:
+                if p['isGM']:
+                    # すでにGMがいるなら他の人はGMにしない（GMは常に一人だけ）
+                    if has_gm:
+                        p['isGM']=False
+                    has_gm=True
+            # GMが一人もいないときには先頭のplayerを強制的にGMにする
+            if not has_gm:
+                self.players[0]['isGM'] = True
 
 
 def append_member(name):
@@ -291,24 +300,33 @@ def favicon():
     return app.send_static_file('favicon.ico')
 
 
+
 @socketio.on('connect')
 def connect(key):
-    if key is not None:
+    game.gm_check()
+    # 繋いだ人が MEMBERS に登録済みのmemberだったらcommerにメンバー情報を代入、そうでなければcommerにNoneを代入
+    commer = None
+    if key:
         for member in MEMBERS:
             if member['key'] == key:
-                commer = member   # MEMMBERS に登録済みの常連commer が ページリクエストしてきた
-                # commerは、すでにゲーム参加していなければ参加
-                if commer['key'] not in [p['key'] for p in game.players]:
-                    player = game.append_player(request.sid, commer)
-                    message = player['name'] + 'さん、おかえりなさい'
-                    emit('message', {'my_name': player['name'], 'msg': message}, to=player['sid'])
-                    game.suggest_cast_menu()
-                # commerは、すでにゲーム参加していれば、それまでのplayerDataを引き継ぐ
-                else:
-                    for p in game.suspend_players:
-                        if p['key'] == commer['key']:
-                            game.players.append(p)
-                            game.suggest_cast_menu()
+                commer = member
+    if commer:
+        player=None
+        # commerは、ゲーム離脱者リストにあるなら、それまでのplayerDataを引き継ぐ（リロード想定）
+        if commer['key'] in [p['key'] for p in game.suspend_players]:
+            player = game.retreave_player(request.sid, commer)
+        # commerは、ゲーム離脱者リストにもなく、ゲーム参加中でもなければ新規にゲーム参戦
+        elif commer['key'] not in [p['key'] for p in game.players]:
+            player = game.append_player(request.sid, commer)
+        emit('message', {'my_name': player['name'],
+                         'opencast': player.get('opencast'),
+                         'objects': player.get('objects'),
+                         'msg':player.get('message'),
+                         'wolf_target':player.get('wolf_target'),
+                         },
+
+             to=player['sid'])
+        game.suggest_cast_menu()
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
                      'castMenu': game.cast_menu,
