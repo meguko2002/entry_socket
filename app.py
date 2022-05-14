@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-from flask_sqlalchemy import SQLAlchemy
+# from flask_sqlalchemy import SQLAlchemy
 import random
 import hashlib
 
@@ -9,16 +9,16 @@ dat = 'python'  # SHA224のハッシュ値
 app = Flask(__name__)
 app.config['SECRETE_KEY'] = 'ABCDEFTH'
 socketio = SocketIO(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///Test.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ECHO'] = True
-db = SQLAlchemy(app)
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///Test.db'
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# app.config['SQLALCHEMY_ECHO'] = True
+# db = SQLAlchemy(app)
 
 
-class Member(db.Model):
-    __tablename__ = 'Member'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text)
+# class Member(db.Model):
+#     __tablename__ = 'Member'
+#     id = db.Column(db.Integer, primary_key=True)
+#     name = db.Column(db.Text)
     # price = db.Column(db.Integer)
 
 
