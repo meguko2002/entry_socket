@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 from flask_socketio import SocketIO, emit
 # from flask_sqlalchemy import SQLAlchemy
 import random
@@ -300,6 +300,18 @@ def favicon():
     return app.send_static_file('favicon.ico')
 
 
+# サーバーをリセット
+@app.route('/host', methods=['GET'])
+def host():
+    return render_template('host.html')
+
+
+@app.route('/host', methods=['POST'])
+def game_reset():
+    global game
+    game = Game()
+    return redirect('/')
+
 
 @socketio.on('connect')
 def connect(key):
@@ -311,7 +323,7 @@ def connect(key):
             if member['key'] == key:
                 commer = member
     if commer:
-        player=None
+        player = None
         # commerは、ゲーム離脱者リストにあるなら、それまでのplayerDataを引き継ぐ（リロード想定）
         if commer['key'] in [p['key'] for p in game.suspend_players]:
             player = game.retreave_player(request.sid, commer)
