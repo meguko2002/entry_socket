@@ -244,14 +244,13 @@ class Game:
         self.players.append(player)
         return player
 
-    def revive_player(self, sid, member):
-        player = [p for p in self.suspend_players if p['key'] == member['key']][0]
+    def revive_player(self, sid, player):
         player['sid'] = sid
         player['pid'] = self._get_pid()
         player['isGM'] = self._game_has_no_gm()  # 抜けている間にほかのだれかがGMをやっているはずだから
         self.players.append(player)
-        self.suspend_players.remove(player)
-        return player
+        if player in self.suspend_players:
+            self.suspend_players.remove(player)
 
     def gameout(self, sid):
         player = self.player_by_sid(sid)
@@ -287,6 +286,7 @@ game = Game()
 
 @app.route('/')
 def index():
+
     return render_template('index.html')
 
 
@@ -310,29 +310,24 @@ def game_reset():
 
 @socketio.on('connect')
 def connect(key):
-    # 繋いだ人が MEMBERS に登録済みのmemberだったらcommerにメンバー情報を代入、そうでなければcommerにNoneを代入
-    commer = None
-    if key:
-        for member in MEMBERS:
-            if member['key'] == key:
-                commer = member
-    if commer:
-        player = None
-        # commerは、ゲーム離脱者リストにあるなら、それまでのplayerDataを引き継ぐ（リロード想定）
-        if commer['key'] in [p['key'] for p in game.suspend_players]:
-            player = game.revive_player(request.sid, commer)
-        # commerは、ゲーム離脱者リストにもなく、ゲーム参加中でもなければ新規にゲーム参戦
-        elif commer['key'] not in [p['key'] for p in game.players]:
-            player = game.append_player(request.sid, commer)
-        emit('message', {'my_name': player['name'],
-                         'opencast': player.get('opencast'),
-                         'objects': player.get('objects'),
-                         'msg': player.get('message'),
-                         'wolf_target': player.get('wolf_target'),
-                         },
+    # 試合前にメンバーがアクセスした時の処理
+    for member in MEMBERS:
+        if member['key'] == key:
+            emit('message', {'my_name': member['name']},to=request.sid)
 
-             to=player['sid'])
-        game.suggest_cast_menu()
+    # 試合中に落ちたプレイヤーがリロードした時の処理
+    for player in game.suspend_players:
+        if player['key'] == key:
+            game.revive_player(request.sid, player)
+            emit('message', {'my_name': player['name'],
+                             'opencast': player.get('opencast'),
+                             'objects': player.get('objects'),
+                             'msg': player.get('message'),
+                             'wolf_target': player.get('wolf_target'),
+                             },to=player['sid'])
+            game.suggest_cast_menu()
+
+    # アクセスした人全員に状況をブロードキャスト
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
                      'castMenu': game.cast_menu,
