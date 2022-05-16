@@ -30,8 +30,7 @@
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
                             :disabled="isNotObjected(player)" value="対象"></input>
-                        <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(player)">
-                            GM</button>
+                        <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(player)">GM</button>
                     </td>
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ opencast[player.name] ]]</td>
@@ -214,7 +213,6 @@
                 },
                 changeGM: function () {
                     this.gmChanging = true
-                    this.Message = "どなたにGMを譲りますか"
                 },
                 submitGM: function (player) {
                     socket.emit('submit GM', player.name)

@@ -19,7 +19,7 @@ socketio = SocketIO(app)
 #     __tablename__ = 'Member'
 #     id = db.Column(db.Integer, primary_key=True)
 #     name = db.Column(db.Text)
-    # price = db.Column(db.Integer)
+# price = db.Column(db.Integer)
 
 
 # app.before_first_requestのデコレータは最初のrequestの時だけデコレートしている関数を実行する
@@ -34,11 +34,14 @@ socketio = SocketIO(app)
 MEMBERS = []
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
-REGURATION = {0: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
-              1: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
-              2: {'cast_menu': '', 'ranshiro': True, 'renguard': False, 'castmiss': False},
-              3: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 2},
-                  'ranshiro': True, 'renguard': False, 'castmiss': False},
+REGURATION = {0: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 0},
+                  'ranshiro': True, 'renguard': False, 'castmiss': True},
+              1: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 1},
+                  'ranshiro': True, 'renguard': False, 'castmiss': True},
+              2: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 1},
+                  'ranshiro': True, 'renguard': False, 'castmiss': True},
+              3: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 2},
+                  'ranshiro': True, 'renguard': False, 'castmiss': True},
               4: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 1},
                   'ranshiro': True, 'renguard': False, 'castmiss': True},
               5: {'cast_menu': {"人狼": 1, "狂人": 1, "占い師": 1, "騎士": 1, "霊媒師": 0, "狂信者": 0, "市民": 2},
@@ -93,7 +96,7 @@ class Game:
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name','pid','isAlive', 'isGM']
+        send_keys = ['name', 'pid', 'isAlive', 'isGM']
         res_players = []
         for p in self.players:
             p_select = {}
@@ -221,49 +224,41 @@ class Game:
         return target_dict
 
     def _get_pid(self):
-        new_pid = 0
-        pids = sorted([p['pid'] for p in self.players])
-        for i,pid in enumerate(pids):
-            new_pid = i+1
-            if pid != new_pid:
-                return new_pid
-        return new_pid+1
+        if len(self.suspend_players) != 0:
+            return self.suspend_players.pop(0)['pid']
+        else:
+            if len(self.players) == 0:
+                return 1
+            else:
+                return max([p['pid'] for p in self.players]) + 1
+
+    def _game_has_no_gm(self):
+        for p in self.players:
+            if p['isGM']:
+                return False
+        return True
 
     def append_player(self, sid, member):
-        pid=self._get_pid()
-        is_gm= True if len(self.players)==0 else False
-        player = {'name': member['name'],'pid':pid, 'key': member['key'], 'sid': sid, 'isAlive': True,
-                  'isGM': is_gm, 'opencast': {}}
+        player = {'name': member['name'], 'pid': self._get_pid(), 'key': member['key'], 'sid': sid, 'isAlive': True,
+                  'isGM': self._game_has_no_gm(), 'opencast': {}}
         self.players.append(player)
         return player
 
-    def retreave_player(self, sid, member):
-        player = [p for p in self.suspend_players if p['key']==member['key']][0]
-        player['sid']=sid
-        player['isGM']=False    # 抜けている間にほかのだれかがGMをやっているはずだから
+    def revive_player(self, sid, member):
+        player = [p for p in self.suspend_players if p['key'] == member['key']][0]
+        player['sid'] = sid
+        player['pid'] = self._get_pid()
+        player['isGM'] = self._game_has_no_gm()  # 抜けている間にほかのだれかがGMをやっているはずだから
         self.players.append(player)
         self.suspend_players.remove(player)
         return player
 
     def gameout(self, sid):
-        p = self.player_by_sid(sid)
-        self.suspend_players.append(p)
-        self.players.remove(p)
-        self.gm_check()
-        return p
-
-    def gm_check(self):
-        if self.players != []:
-            has_gm=False
-            for p in self.players:
-                if p['isGM']:
-                    # すでにGMがいるなら他の人はGMにしない（GMは常に一人だけ）
-                    if has_gm:
-                        p['isGM']=False
-                    has_gm=True
-            # GMが一人もいないときには先頭のplayerを強制的にGMにする
-            if not has_gm:
-                self.players[0]['isGM'] = True
+        player = self.player_by_sid(sid)
+        self.suspend_players.append(player)
+        self.players.remove(player)
+        if len(self.players) != 0:
+            self.players[0]['isGM'] = self._game_has_no_gm()
 
 
 def append_member(name):
@@ -315,7 +310,6 @@ def game_reset():
 
 @socketio.on('connect')
 def connect(key):
-    game.gm_check()
     # 繋いだ人が MEMBERS に登録済みのmemberだったらcommerにメンバー情報を代入、そうでなければcommerにNoneを代入
     commer = None
     if key:
@@ -326,15 +320,15 @@ def connect(key):
         player = None
         # commerは、ゲーム離脱者リストにあるなら、それまでのplayerDataを引き継ぐ（リロード想定）
         if commer['key'] in [p['key'] for p in game.suspend_players]:
-            player = game.retreave_player(request.sid, commer)
+            player = game.revive_player(request.sid, commer)
         # commerは、ゲーム離脱者リストにもなく、ゲーム参加中でもなければ新規にゲーム参戦
         elif commer['key'] not in [p['key'] for p in game.players]:
             player = game.append_player(request.sid, commer)
         emit('message', {'my_name': player['name'],
                          'opencast': player.get('opencast'),
                          'objects': player.get('objects'),
-                         'msg':player.get('message'),
-                         'wolf_target':player.get('wolf_target'),
+                         'msg': player.get('message'),
+                         'wolf_target': player.get('wolf_target'),
                          },
 
              to=player['sid'])
@@ -350,17 +344,16 @@ def connect(key):
 
 @socketio.on('disconnect')
 def disconnect():
-    p = game.player_by_sid(request.sid)
-    if p is not None:
-        game.gameout(request.sid)
+    game.gameout(request.sid)
+    if len(game.players) != 0:
         game.suggest_cast_menu()
         emit('message', {
-                         'players': game.players_for_player,
-                         'castMenu': game.cast_menu,
-                         'ranshiro': game.ranshiro,
-                         'renguard': game.renguard,
-                         'castmiss': game.castmiss,
-                         }, broadcast=True)
+            'players': game.players_for_player,
+            'castMenu': game.cast_menu,
+            'ranshiro': game.ranshiro,
+            'renguard': game.renguard,
+            'castmiss': game.castmiss,
+        }, broadcast=True)
 
 
 @socketio.on('join')
@@ -368,7 +361,7 @@ def join(name):
     # メンバー登録
     member = append_member(name)
     message = name + 'さん、初めまして'
-    emit('message', {'msg': message, 'key': member['key'], 'my_name':member['name']}, to=request.sid)
+    emit('message', {'msg': message, 'key': member['key'], 'my_name': member['name']}, to=request.sid)
     # 試合に参加
     game.append_player(request.sid, member)
     game.suggest_cast_menu()
