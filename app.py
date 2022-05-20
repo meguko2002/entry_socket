@@ -235,6 +235,7 @@ class Game:
                 player['pid'] = self._get_pid()
                 player['isGM'] = self._game_has_no_gm()  # 抜けている間にほかのだれかがGMをやっているはずだから
                 self.players.append(player)
+                self.suspend_players.remove(player)
 
 
     def gameout_by_sid(self, sid):
@@ -246,11 +247,10 @@ class Game:
         self.gameout(player)
 
     def gameout(self, player):
-        if player is not None:
-            self.id_stock.discard(player['pid'])
-            self.id_bin.add(player['pid'])
-            self.suspend_players.append(player)
-            self.players.remove(player)
+        self.id_stock.discard(player['pid'])
+        self.id_bin.add(player['pid'])
+        self.suspend_players.append(player)
+        self.players.remove(player)
         if len(self.players) != 0:
             if self._game_has_no_gm():
                 self.players[0]['isGM'] = True
@@ -315,6 +315,8 @@ def connect():
     emit('message', {'my_name': name}, to=request.sid)
     game.suggest_cast_menu()
     game.emit_broadcast()
+    assert (len(game.players)+len(game.suspend_players))==len(game.id_stock | game.id_bin),\
+        f'pidがあってない {len(game.players)} {len(game.suspend_players)} {game.id_stock} {game.id_bin}'
 
 
 @socketio.on('disconnect')
@@ -337,10 +339,9 @@ def leave(name):
 def join(name):
     # メンバー登録
     session['name'] = name
-    emit('message', {'my_name': name}, to=request.sid)
-    # 試合に参加
     game.append_player(request.sid, name)
     game.suggest_cast_menu()
+    emit('message', {'my_name': name}, to=request.sid)
     game.emit_broadcast()
 
 
