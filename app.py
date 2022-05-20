@@ -72,6 +72,8 @@ class Game:
         self.citizens = []
         self.outcast = None  # 追放者
         self.suspend_players = []
+        self.id_stock=set()
+        self.id_bin=set()
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
@@ -203,13 +205,13 @@ class Game:
         return target_dict
 
     def _get_pid(self):
-        if len(self.suspend_players) != 0:
-            return self.suspend_players.pop(0)['pid']
+        if len(self.id_bin)!=0:
+            id = self.id_bin.pop()
         else:
-            if len(self.players) == 0:
-                return 1
-            else:
-                return max([p['pid'] for p in self.players]) + 1
+            id=len(self.id_stock)+1
+        self.id_stock.add(id)
+        return id
+
 
     def _game_has_no_gm(self):
         for p in self.players:
@@ -226,12 +228,14 @@ class Game:
                   'opencast': {}}
         self.players.append(player)
 
-    def revive_player(self,player, sid):
-        player['sid']=sid
-        player['pid'] = self._get_pid()
-        player['isGM'] = self._game_has_no_gm()  # 抜けている間にほかのだれかがGMをやっているはずだから
-        self.players.append(player)
-        self.suspend_players.remove(player)
+    def check_reloader(self, name, sid):
+        for player in self.suspend_players:
+            if player['name'] == name:
+                player['sid'] = sid
+                player['pid'] = self._get_pid()
+                player['isGM'] = self._game_has_no_gm()  # 抜けている間にほかのだれかがGMをやっているはずだから
+                self.players.append(player)
+
 
     def gameout_by_sid(self, sid):
         player = self.player_by_sid(sid)
@@ -243,8 +247,9 @@ class Game:
 
     def gameout(self, player):
         if player is not None:
+            self.id_stock.discard(player['pid'])
+            self.id_bin.add(player['pid'])
             self.suspend_players.append(player)
-        if player in self.players:
             self.players.remove(player)
         if len(self.players) != 0:
             if self._game_has_no_gm():
@@ -306,10 +311,8 @@ def host():
 @socketio.on('connect')
 def connect():
     name = session.get('name', '')
-    player = game.player_by_name(name)
+    game.check_reloader(name, request.sid)
     emit('message', {'my_name': name}, to=request.sid)
-    if player in game.suspend_players:
-        game.revive_player(player, request.sid)
     game.suggest_cast_menu()
     game.emit_broadcast()
 
