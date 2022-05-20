@@ -234,7 +234,10 @@
                 },
             },
             created: function () {
-                axios.get('/session').then(response=>{this.myName = response.data['name']})
+                axios.get('/session')
+                .then(response=>{
+                    this.myName = response.data['name']; 
+                })
                 socket.on('message', (data) => {
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect,session,url_for, jsonify
+from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 from flask_socketio import SocketIO, emit
 from flask_session import Session
 import random
@@ -11,9 +11,6 @@ app.config['SECRET_KEY'] = 'top-secret!'
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 socketio = SocketIO(app, manage_session=False)
-
-
-MEMBERS = []
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
 REGURATION = {0: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 0},
@@ -221,18 +218,20 @@ class Game:
         return True
 
     def append_player(self, sid, name):
-        player = {'name': name, 'pid': self._get_pid(), 'sid': sid, 'isAlive': True,
-                  'isGM': self._game_has_no_gm(), 'opencast': {}}
+        player = {'name': name,
+                  'pid': self._get_pid(),
+                  'sid': sid,
+                  'isAlive': True,
+                  'isGM': self._game_has_no_gm(),
+                  'opencast': {}}
         self.players.append(player)
-        return player
 
-    def revive_player(self, sid, player):
-        player['sid'] = sid
+    def revive_player(self,player, sid):
+        player['sid']=sid
         player['pid'] = self._get_pid()
         player['isGM'] = self._game_has_no_gm()  # 抜けている間にほかのだれかがGMをやっているはずだから
         self.players.append(player)
-        if player in self.suspend_players:
-            self.suspend_players.remove(player)
+        self.suspend_players.remove(player)
 
     def gameout_by_sid(self, sid):
         player = self.player_by_sid(sid)
@@ -250,6 +249,16 @@ class Game:
         if len(self.players) != 0:
             if self._game_has_no_gm():
                 self.players[0]['isGM'] = True
+
+    def emit_broadcast(self, message=None):
+        emit('message', {'phase': self.phase,
+                         'players': self.players_for_player,
+                         'castMenu': self.cast_menu,
+                         'ranshiro': self.ranshiro,
+                         'renguard': self.renguard,
+                         'castmiss': self.castmiss,
+                         'msg': message
+                         }, broadcast=True)
 
 
 def target_set(wolf, target):
@@ -275,9 +284,8 @@ def index():
 
 @app.route('/session')
 def session_access():
-    return jsonify({
-        'name': session.get('name', '')
-    })
+    name = session.get('name', '')
+    return jsonify({'name': name})
 
 
 @app.route('/favicon.ico')
@@ -297,35 +305,13 @@ def host():
 
 @socketio.on('connect')
 def connect():
-    emit('message',{'my_name':session.get('name')},to=request.sid)
-
-    #
-    # # 試合前にメンバーがアクセスした時の処理
-    # for member in MEMBERS:
-    #     if member['key'] == key:
-    #         # print(f'your name is {member["name"]}')
-    #         emit('message', {'my_name': member['name']},to=request.sid)
-    #
-    # # 試合中に落ちたプレイヤーがリロードした時の処理
-    # for player in game.suspend_players:
-    #     if player['key'] == key:
-    #         game.revive_player(request.sid, player)
-    #         emit('message', {'my_name': player['name'],
-    #                          'opencast': player.get('opencast'),
-    #                          'objects': player.get('objects'),
-    #                          'msg': player.get('message'),
-    #                          'wolf_target': player.get('wolf_target'),
-    #                          },to=player['sid'])
-    #         game.suggest_cast_menu()
-    #
-    # アクセスした人全員に状況をブロードキャスト
-    emit('message', {'phase': game.phase,
-                     'players': game.players_for_player,
-                     'castMenu': game.cast_menu,
-                     'ranshiro': game.ranshiro,
-                     'renguard': game.renguard,
-                     'castmiss': game.castmiss,
-                     }, broadcast=True)
+    name = session.get('name', '')
+    player = game.player_by_name(name)
+    emit('message', {'my_name': name}, to=request.sid)
+    if player in game.suspend_players:
+        game.revive_player(player, request.sid)
+    game.suggest_cast_menu()
+    game.emit_broadcast()
 
 
 @socketio.on('disconnect')
@@ -333,64 +319,45 @@ def disconnect():
     game.gameout_by_sid(request.sid)
     if len(game.players) != 0:
         game.suggest_cast_menu()
-        emit('message', {
-            'players': game.players_for_player,
-            'castMenu': game.cast_menu,
-            'ranshiro': game.ranshiro,
-            'renguard': game.renguard,
-            'castmiss': game.castmiss,
-        }, broadcast=True)
+    game.emit_broadcast()
+
 
 @socketio.on('leave')
 def leave(name):
     game.gameout_by_name(name)
     if len(game.players) != 0:
         game.suggest_cast_menu()
-    emit('message', {
-        'players': game.players_for_player,
-        'castMenu': game.cast_menu,
-        'ranshiro': game.ranshiro,
-        'renguard': game.renguard,
-        'castmiss': game.castmiss,
-    }, broadcast=True)
+    game.emit_broadcast()
 
 
 @socketio.on('join')
 def join(name):
     # メンバー登録
     session['name'] = name
-    MEMBERS.append(name)
-    message = name + 'さん、初めまして'
-    emit('message', {'msg': message, 'my_name': name}, to=request.sid)
+    emit('message', {'my_name': name}, to=request.sid)
     # 試合に参加
     game.append_player(request.sid, name)
     game.suggest_cast_menu()
-    emit('message', {'phase': game.phase,
-                     'players': game.players_for_player,
-                     'castMenu': game.cast_menu,
-                     'ranshiro': game.ranshiro,
-                     'renguard': game.renguard,
-                     'castmiss': game.castmiss,
-                     }, broadcast=True)
+    game.emit_broadcast()
 
 
 @socketio.on('set renguard')
 def set_renguard(renguard):
     game.renguard = renguard
-    emit('message', {'renguard': game.renguard}, broadcast=True)
+    game.emit_broadcast()
 
 
 @socketio.on('set ranshiro')
 def set_ranshiro(ranshiro):
     game.ranshiro = ranshiro
-    emit('message', {'ranshiro': game.ranshiro}, broadcast=True)
+    game.emit_broadcast()
 
 
 @socketio.on('set castmiss')
 def set_castmiss(castmiss):
     game.castmiss = castmiss
     game.adjust_citizen_num()
-    emit('message', {'castmiss': game.castmiss, 'castMenu': game.cast_menu}, broadcast=True)
+    game.emit_broadcast()
 
 
 @socketio.on('assign cast')
@@ -436,8 +403,7 @@ def vote(name):
     else:
         game.outcast = None
         msg = '誰も追放されませんでした'
-    emit('message', {'msg': msg, 'players': game.players_for_player},
-         broadcast=True)
+    game.emit_broadcast(message=msg)
 
 
 @socketio.on('judge')
@@ -544,7 +510,7 @@ def action(object_name):
     game.judge_casts_action()  # 全てのcastのアクションから全体の判定
     game.phase = '朝'
     message = '夜のアクションが終了しました'
-    emit('message', {'phase': game.phase, 'msg': message}, broadcast=True)
+    game.emit_broadcast(message=message)
 
 
 @socketio.on('next game')
@@ -553,8 +519,8 @@ def next_game():
     game.cast_reset()
     game.phase = '参加受付中'
     message = '参加受付中'
-    emit('message', {'players': game.players_for_player, 'phase': game.phase, 'opencast': '', 'msg': message},
-         broadcast=True)
+    game.emit_broadcast(message=message)
+    emit('message', {'opencast': ''}, broadcast=True)
 
 
 @socketio.on('submit GM')
@@ -563,13 +529,13 @@ def submit_gm(name):
         player['isGM'] = False
     player = game.player_by_name(name)
     player['isGM'] = True
-    emit('message', {'players': game.players_for_player}, broadcast=True)
+    game.emit_broadcast()
 
 
 @socketio.on('change cast')
 def change_cast(new_menu):
     game.adjust_citizen_num(new_menu)
-    emit('message', {'castMenu': game.cast_menu}, broadcast=True)
+    game.emit_broadcast()
 
 
 if __name__ == '__main__':
