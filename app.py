@@ -346,13 +346,13 @@ def leave(name):
     game.gameout_by_name(name)
     if len(game.players) != 0:
         game.suggest_cast_menu()
-        emit('message', {
-            'players': game.players_for_player,
-            'castMenu': game.cast_menu,
-            'ranshiro': game.ranshiro,
-            'renguard': game.renguard,
-            'castmiss': game.castmiss,
-        }, broadcast=True)
+    emit('message', {
+        'players': game.players_for_player,
+        'castMenu': game.cast_menu,
+        'ranshiro': game.ranshiro,
+        'renguard': game.renguard,
+        'castmiss': game.castmiss,
+    }, broadcast=True)
 
 
 @socketio.on('join')
@@ -573,5 +573,5 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='localhost', debug=True)
-    # socketio.run(app, host='0.0.0.0', debug=True)
+    # socketio.run(app, host='localhost', debug=True)
+    socketio.run(app, host='192.168.2.60', debug=True)

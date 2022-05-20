@@ -23,9 +23,6 @@
                     <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
                     <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
                     <td>
-                        <!-- <input v-if="IamGM && phase=='参加者登録'" type="checkbox" :id="'rm-'+index" :disabled="player.isGM"
-                            :value="player.name" v-model="deletePlayers"></input>
-                        <label v-if="IamGM && phase=='参加者登録'" :for="'rm-'+index">削除</label> -->
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
@@ -130,8 +127,7 @@
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 // myKey: '',
-                myName: '',     // myNameはserverでkeyと照合して与えられる  
-                submitName: '',  // submitNameはserverに名前登録する時にだけ使う変数
+                myName: '', 
                 message: '',
                 gmChanging: false,
                 voted: false,
@@ -168,25 +164,9 @@
                     }
                     return false
                 },
-                IamActive: function () {
-                    if (this.myData===undefined) {
-                        return false
-                    }
-                    return true
-                },
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
                 },
-                // isBtnDisable: function () {
-                //     return function (player) {
-                //         if (this.IamActive) {  //自分が参加登録済みの場合
-                //             return player.name != this.myName        //自分のボタンだけ押せる 
-                //         }
-                //         else {                                     //自分未登録の場合
-                //             return this.playerActive(player)           //他の人が登録済みのボタンは押せない
-                //         }
-                //     }
-                // },
                 isNotObjected: function () {
                     return function (player) {
                         return !this.objects.includes(player.name)
@@ -256,10 +236,6 @@
             created: function () {
                 axios.get('/session').then(response=>{this.myName = response.data['name']})
                 socket.on('message', (data) => {
-                    // if ("key" in data) {
-                    //     this.myKey = data.key
-                    //     sessionStorage.setItem('myKey', this.myKey)
-                    // }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("my_name" in data) { this.myName = data.my_name }
