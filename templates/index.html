@@ -31,6 +31,7 @@
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
                             :disabled="isNotObjected(player)" value="対象"></input>
                         <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(player)">GM</button>
+                        <button v-if="phase=='参加受付中' && (player.name==myName || IamGM)" v-on:click="leave(player)">退出</button>
                     </td>
                     <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ opencast[player.name] ]]</td>
@@ -38,10 +39,10 @@
                     </td>
                 </tr>
 
-                <tr v-if="phase =='参加受付中' && myName === ''">
+                <tr v-if="phase =='参加受付中' && myId ==0">
                     <td></td>
                     <td>
-                        <input type="text" v-model="submitName" placeholder="お名前">
+                        <input type="text" v-model="myName" placeholder="お名前">
                     </td>
                     <td>
                         <button v-on:click="join"> 参加 </button>
@@ -116,10 +117,9 @@
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
         integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
         crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
-        const socket = io({
-            auth: sessionStorage.getItem('myKey')
-        });
+        const socket = io()
         Vue.options.delimiters = ['[[', ']]'];
 
         const app = new Vue({
@@ -129,7 +129,7 @@
                 addPlayerName: '',
                 opencast: {},
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myKey: '',
+                // myKey: '',
                 myName: '',     // myNameはserverでkeyと照合して与えられる  
                 submitName: '',  // submitNameはserverに名前登録する時にだけ使う変数
                 message: '',
@@ -200,13 +200,12 @@
             },
             methods: {
                 join: function () {
-                    if (this.submitName != '') {
-                        socket.emit('join', this.submitName)
-                        this.submitName = ''
+                    if (this.myName != '') {
+                        socket.emit('join', this.myName)
                     }
                 },
-                changeName: function () {
-                    socket.emit('change name', this.myName)
+                leave: function (player) {
+                    socket.emit('leave', player.name)
                 },
                 action: function (player) {
                     socket.emit('do action', player.name)
@@ -255,14 +254,12 @@
                 },
             },
             created: function () {
-                if (sessionStorage.getItem('myKey')) {
-                    this.myKey = sessionStorage.getItem('myKey')
-                }
+                axios.get('/session').then(response=>{this.myName = response.data['name']})
                 socket.on('message', (data) => {
-                    if ("key" in data) {
-                        this.myKey = data.key
-                        sessionStorage.setItem('myKey', this.myKey)
-                    }
+                    // if ("key" in data) {
+                    //     this.myKey = data.key
+                    //     sessionStorage.setItem('myKey', this.myKey)
+                    // }
                     if ("phase" in data) { this.phase = data.phase }
                     if ("msg" in data) { this.message = data.msg }
                     if ("my_name" in data) { this.myName = data.my_name }

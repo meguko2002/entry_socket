@@ -1,34 +1,16 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect,session,url_for, jsonify
 from flask_socketio import SocketIO, emit
-# from flask_sqlalchemy import SQLAlchemy
+from flask_session import Session
 import random
 import hashlib
 
-dat = 'python'  # SHA224のハッシュ値
+# dat = 'python'  # SHA224のハッシュ値
 
 app = Flask(__name__)
-app.config['SECRETE_KEY'] = 'ABCDEFTH'
-socketio = SocketIO(app)
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///Test.db'
-# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# app.config['SQLALCHEMY_ECHO'] = True
-# db = SQLAlchemy(app)
-
-
-# class Member(db.Model):
-#     __tablename__ = 'Member'
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.Text)
-# price = db.Column(db.Integer)
-
-
-# app.before_first_requestのデコレータは最初のrequestの時だけデコレートしている関数を実行する
-# https://shigeblog221.com/
-#
-# -sqlalchemy/
-# @app.before_first_request
-# def init():
-#     db.create_all()
+app.config['SECRET_KEY'] = 'top-secret!'
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+socketio = SocketIO(app, manage_session=False)
 
 
 MEMBERS = []
@@ -238,8 +220,8 @@ class Game:
                 return False
         return True
 
-    def append_player(self, sid, member):
-        player = {'name': member['name'], 'pid': self._get_pid(), 'key': member['key'], 'sid': sid, 'isAlive': True,
+    def append_player(self, sid, name):
+        player = {'name': name, 'pid': self._get_pid(), 'sid': sid, 'isAlive': True,
                   'isGM': self._game_has_no_gm(), 'opencast': {}}
         self.players.append(player)
         return player
@@ -252,20 +234,22 @@ class Game:
         if player in self.suspend_players:
             self.suspend_players.remove(player)
 
-    def gameout(self, sid):
+    def gameout_by_sid(self, sid):
         player = self.player_by_sid(sid)
-        self.suspend_players.append(player)
-        self.players.remove(player)
+        self.gameout(player)
+
+    def gameout_by_name(self, name):
+        player = self.player_by_name(name)
+        self.gameout(player)
+
+    def gameout(self, player):
+        if player is not None:
+            self.suspend_players.append(player)
+        if player in self.players:
+            self.players.remove(player)
         if len(self.players) != 0:
-            self.players[0]['isGM'] = self._game_has_no_gm()
-
-
-def append_member(name):
-    # SHA224のハッシュ値
-    hs = hashlib.sha224((dat + name).encode()).hexdigest()
-    member = {'name': name, 'key': hs}
-    MEMBERS.append(member)
-    return member
+            if self._game_has_no_gm():
+                self.players[0]['isGM'] = True
 
 
 def target_set(wolf, target):
@@ -286,8 +270,14 @@ game = Game()
 
 @app.route('/')
 def index():
-
     return render_template('index.html')
+
+
+@app.route('/session')
+def session_access():
+    return jsonify({
+        'name': session.get('name', '')
+    })
 
 
 @app.route('/favicon.ico')
@@ -296,37 +286,38 @@ def favicon():
 
 
 # サーバーをリセット
-@app.route('/host', methods=['GET'])
+@app.route('/host', methods=['GET', 'POST'])
 def host():
-    return render_template('host.html')
-
-
-@app.route('/host', methods=['POST'])
-def game_reset():
+    if request.method == 'GET':
+        return render_template('host.html')
     global game
     game = Game()
     return redirect('/')
 
 
 @socketio.on('connect')
-def connect(key):
-    # 試合前にメンバーがアクセスした時の処理
-    for member in MEMBERS:
-        if member['key'] == key:
-            emit('message', {'my_name': member['name']},to=request.sid)
+def connect():
+    emit('message',{'my_name':session.get('name')},to=request.sid)
 
-    # 試合中に落ちたプレイヤーがリロードした時の処理
-    for player in game.suspend_players:
-        if player['key'] == key:
-            game.revive_player(request.sid, player)
-            emit('message', {'my_name': player['name'],
-                             'opencast': player.get('opencast'),
-                             'objects': player.get('objects'),
-                             'msg': player.get('message'),
-                             'wolf_target': player.get('wolf_target'),
-                             },to=player['sid'])
-            game.suggest_cast_menu()
-
+    #
+    # # 試合前にメンバーがアクセスした時の処理
+    # for member in MEMBERS:
+    #     if member['key'] == key:
+    #         # print(f'your name is {member["name"]}')
+    #         emit('message', {'my_name': member['name']},to=request.sid)
+    #
+    # # 試合中に落ちたプレイヤーがリロードした時の処理
+    # for player in game.suspend_players:
+    #     if player['key'] == key:
+    #         game.revive_player(request.sid, player)
+    #         emit('message', {'my_name': player['name'],
+    #                          'opencast': player.get('opencast'),
+    #                          'objects': player.get('objects'),
+    #                          'msg': player.get('message'),
+    #                          'wolf_target': player.get('wolf_target'),
+    #                          },to=player['sid'])
+    #         game.suggest_cast_menu()
+    #
     # アクセスした人全員に状況をブロードキャスト
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
@@ -339,7 +330,20 @@ def connect(key):
 
 @socketio.on('disconnect')
 def disconnect():
-    game.gameout(request.sid)
+    game.gameout_by_sid(request.sid)
+    if len(game.players) != 0:
+        game.suggest_cast_menu()
+        emit('message', {
+            'players': game.players_for_player,
+            'castMenu': game.cast_menu,
+            'ranshiro': game.ranshiro,
+            'renguard': game.renguard,
+            'castmiss': game.castmiss,
+        }, broadcast=True)
+
+@socketio.on('leave')
+def leave(name):
+    game.gameout_by_name(name)
     if len(game.players) != 0:
         game.suggest_cast_menu()
         emit('message', {
@@ -354,11 +358,12 @@ def disconnect():
 @socketio.on('join')
 def join(name):
     # メンバー登録
-    member = append_member(name)
+    session['name'] = name
+    MEMBERS.append(name)
     message = name + 'さん、初めまして'
-    emit('message', {'msg': message, 'key': member['key'], 'my_name': member['name']}, to=request.sid)
+    emit('message', {'msg': message, 'my_name': name}, to=request.sid)
     # 試合に参加
-    game.append_player(request.sid, member)
+    game.append_player(request.sid, name)
     game.suggest_cast_menu()
     emit('message', {'phase': game.phase,
                      'players': game.players_for_player,
@@ -367,13 +372,6 @@ def join(name):
                      'renguard': game.renguard,
                      'castmiss': game.castmiss,
                      }, broadcast=True)
-
-
-@socketio.on('change name')
-def change_name(name):
-    p = game.player_by_sid(request.sid)
-    p['name'] = name
-    emit('message', {'players': game.players_for_player}, broadcast=True)
 
 
 @socketio.on('set renguard')
