@@ -46,15 +46,10 @@
                 <tr v-if="phase =='参加受付中' && myId ==0">
                     <td></td>
                     <td>
-                        <input type="text" v-model="myName" placeholder="お名前">
+                        <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前">
                     </td>
-                    <td v-if="gmName == ''">
-                        <button v-on:click="submitGM(myName)">プレイングGM</button>
-                        <button v-on:click="submitGM(myName)">GMのみ</button>
-                        <button v-on:click="join">プレイヤーとして参加</button>
-
-                    </td>
-                    <td v-else>
+                    <td >
+                        <button v-if="gmName == ''" v-on:click="submitGM(myName)">GM</button>
                         <button v-on:click="join"> 参加 </button>
                     </td>
                 </tr>

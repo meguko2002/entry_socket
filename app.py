@@ -366,6 +366,7 @@ def assign_cast(cast_menu):
              {'players': game.players_for_player, 'phase': game.phase, 'msg': player['message'],
               'opencast': player['opencast']},
              to=player['sid'])
+        game.emit_broadcast()
 
 
 @socketio.on('vote')
