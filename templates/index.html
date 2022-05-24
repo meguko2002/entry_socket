@@ -12,12 +12,6 @@
         color: #fff;
         background-color: rgba(7, 7, 7, 0.466);
     }
-
-    ;
-
-    .on {
-        color: rgb(23, 108, 134);
-    }
 </style>
 
 <body>
@@ -27,7 +21,9 @@
             <table>
                 <tr v-for="player in players" :key="player.pid">
                     <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]</td>
+                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]
+                        <span v-if="!player.is_playing">(断線中)</span>
+                    </td>
                     <td>
                         <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
                             :disabled="voted || !player.isAlive">追放</button>
@@ -105,6 +101,7 @@
                     <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
                     </option>
                 </select>
+                <span v-show="castmiss">※必ず一体は人狼がいます</span> 
             </p>
         </template>
 

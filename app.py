@@ -76,7 +76,7 @@ class Game:
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
-        send_keys = ['name', 'pid', 'isAlive','is_playing']
+        send_keys = ['name', 'pid', 'isAlive', 'is_playing', 'opencast']
         res_players = []
         for p in self.players:
             p_select = {}
@@ -215,7 +215,6 @@ class Game:
             id = len(self.players) + 1
         return id
 
-
     def append_new_player(self, sid, name):
         player = {'name': name,
                   'pid': self._get_pid(),
@@ -235,6 +234,13 @@ class Game:
                          'gm_name': self.gm_name,
                          'msg': message
                          }, broadcast=True)
+
+    def emit_to_person(self, player):
+        send_keys = ['name', 'pid', 'isAlive', 'is_playing', 'opencast']
+        p_select = {}
+        for key in send_keys:
+            p_select[key] = player.get(key)
+        emit('message', p_select, to=player['sid'])
 
 
 def target_set(wolf, target):
@@ -284,7 +290,10 @@ def connect():
     player = game.player_by_name(session.get('name', None))
     if player is not None:
         player['is_playing'] = True
+        player['sid'] = request.sid
+        game.emit_to_person(player)
     game.emit_broadcast()
+
 
 
 @socketio.on('disconnect')
@@ -292,7 +301,6 @@ def disconnect():
     player = game.player_by_sid(request.sid)
     if player is not None:
         player['is_playing'] = False
-        game.suggest_cast_menu()
         game.emit_broadcast()
 
 
@@ -485,8 +493,7 @@ def action(object_name):
     game.judge_casts_action()  # 全てのcastのアクションから全体の判定
     game.phase = '朝'
     message = '夜のアクションが終了しました'
-    emit('message', {'phase': game.phase,'msg': message}, broadcast=True)
-
+    emit('message', {'phase': game.phase, 'msg': message}, broadcast=True)
 
 
 @socketio.on('next game')
@@ -512,5 +519,5 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    # socketio.run(app, host='localhost', debug=True)
-    socketio.run(app, host='192.168.2.60', debug=True)
+    socketio.run(app, host='localhost', debug=True)
+    # socketio.run(app, host='192.168.2.60', debug=True)
