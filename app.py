@@ -366,7 +366,7 @@ def assign_cast(cast_menu):
              {'players': game.players_for_player, 'phase': game.phase, 'msg': player['message'],
               'opencast': player['opencast']},
              to=player['sid'])
-        game.emit_broadcast()
+    game.emit_broadcast()
 
 
 @socketio.on('vote')
@@ -485,7 +485,8 @@ def action(object_name):
     game.judge_casts_action()  # 全てのcastのアクションから全体の判定
     game.phase = '朝'
     message = '夜のアクションが終了しました'
-    game.emit_broadcast(message=message)
+    emit('message', {'phase': game.phase,'msg': message}, broadcast=True)
+
 
 
 @socketio.on('next game')
