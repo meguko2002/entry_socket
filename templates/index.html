@@ -29,11 +29,11 @@
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
                             :disabled="isNotObjected(player)" value="対象"></input>
-                        <button v-if="phase=='参加受付中' && gmChanging" v-on:click="submitGM(player.name)">GM</button>
+                        <button v-if="phase=='参加受付中' && IamGM" v-on:click="submitGM(player.name)"
+                            :disabled="player.name==myName">GM</button>
                         <button v-if="phase=='参加受付中' && (player.name==myName || IamGM)"
                             v-on:click="leave(player)">退出</button>
                     </td>
-                    <td v-if="player.isGM && phase=='参加受付中'">GM</td>
                     <td>[[ opencast[player.name] ]]</td>
                     <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
                     </td>
@@ -44,8 +44,8 @@
                     <td>
                         <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前">
                     </td>
-                    <td >
-                        <button v-if="gmName == ''" v-on:click="submitGM(myName)">GM</button>
+                    <td>
+                        <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button>
                         <button v-on:click="join"> 参加 </button>
                     </td>
                 </tr>
@@ -63,7 +63,6 @@
         <p>GM [[ gmSign ]]</p>
         <template v-if="IamGM">
             <button v-if="phase=='参加受付中'" v-on:click=" assignCast">試合開始</button>
-            <button v-if="phase=='参加受付中'" v-on:click=" changeGM">GM交代</button>
             <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
             <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
             <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
@@ -101,7 +100,7 @@
                     <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
                     </option>
                 </select>
-                <span v-show="castmiss">※必ず一体は人狼がいます</span> 
+                <span v-show="castmiss">※必ず一体は人狼がいます</span>
             </p>
         </template>
 
@@ -124,7 +123,6 @@
                 phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
                 myName: '',
                 message: '',
-                gmChanging: false,
                 voted: false,
                 objects: [], // 各役職の投票対象となるplayer.name
                 wolfTarget: [],
@@ -136,11 +134,17 @@
                     { text: 'なし', value: false },
                     { text: 'あり', value: true },
                 ],
-                gmName: ''
+                gm: {},
             },
             computed: {
-                gmSign:function(){
-                    return  this.gmName == ''? '未定' : this.gmName
+                gmButtonEnable: function () {
+                    if(this.gm.name == null){
+                        return true
+                    }
+                    return !this.gm.is_playing
+                },
+                gmSign: function () {
+                    return this.gm.name == null ? '未定' : this.gm.name
                 },
                 myData: function () {
                     return this.players.find(p => p.name === this.myName)
@@ -155,7 +159,10 @@
                     return this.phase != '参加受付中'
                 },
                 IamGM: function () {
-                    return this.myName == this.gmName
+                    if (this.myName == '') {
+                        return false
+                    }
+                    return this.myName == this.gm.name
                 },
                 gameover: function () {
                     return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
@@ -183,13 +190,9 @@
                 action: function (player) {
                     socket.emit('do action', player.name)
                 },
-                changeGM: function () {
-                    this.gmChanging = true
-                },
                 submitGM: function (name) {
                     socket.emit('submit GM', name)
                     this.Message = ""
-                    this.gmChanging = false
                 },
                 assignCast: function () {
                     socket.emit('assign cast', this.castMenu)
@@ -240,7 +243,7 @@
                             return a.pid - b.pid
                         })
                     }
-                    if ("gm_name" in data) { this.gmName = data.gm_name }
+                    if ("gm" in data) { this.gm = data.gm }
                     if ("opencast" in data) { this.opencast = data.opencast }
                     if ("objects" in data) {
                         this.objects = data.objects

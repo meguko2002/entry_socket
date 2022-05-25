@@ -72,7 +72,7 @@ class Game:
         self.citizens = []
         self.outcast = None  # 追放者
         self.id_bin = set()
-        self.gm_name = ''
+        self.gm = {}
 
     @property
     def players_for_player(self):  # 配布用players（castは送らない）
@@ -200,6 +200,16 @@ class Game:
                 return p
         return None
 
+    def gm_by_sid(self, sid):
+        if self.gm.get('sid') == sid:
+            return self.gm
+        return None
+
+    def gm_by_name(self, name):
+        if self.gm.get('name') == name:
+            return self.gm
+        return None
+
     def get_wolf_target(self):
         target_dict = {}
         for p in self.players:
@@ -231,16 +241,16 @@ class Game:
                          'ranshiro': self.ranshiro,
                          'renguard': self.renguard,
                          'castmiss': self.castmiss,
-                         'gm_name': self.gm_name,
+                         'gm': self.gm,
                          'msg': message
                          }, broadcast=True)
 
-    def emit_to_person(self, player):
-        send_keys = ['name', 'pid', 'isAlive', 'is_playing', 'opencast']
-        p_select = {}
-        for key in send_keys:
-            p_select[key] = player.get(key)
-        emit('message', p_select, to=player['sid'])
+    # def emit_to_person(self, player):
+    #     send_keys = ['name', 'objects', 'opencast']
+    #     p_select = {}
+    #     for key in send_keys:
+    #         p_select[key] = player.get(key)
+    #     emit('message', p_select, to=player['sid'])
 
 
 def target_set(wolf, target):
@@ -287,21 +297,42 @@ def host():
 
 @socketio.on('connect')
 def connect():
-    player = game.player_by_name(session.get('name', None))
-    if player is not None:
+    global game
+    # # # 入った時、参加者がいない場合、それまでのゲームは破棄されて新たなゲームが立ち上がる
+    if len(game.players) == 0 or len([p for p in game.players if p['is_playing']]) == 0:
+        game = Game()
+    name = session.get('name', None)
+    player = game.player_by_name(name)
+    if player:
+        print(f"{player.get('name', '???')}がconn")
         player['is_playing'] = True
         player['sid'] = request.sid
-        game.emit_to_person(player)
-    game.emit_broadcast()
+        # game.emit_to_person(player)
+    else:
+        print('playerでないかたがconn')
 
+    gm = game.gm_by_name(name)
+    if gm is not None:
+        gm['is_playing'] = True
+        gm['sid'] = request.sid
+        print(f"gm{gm['name']}復帰")
+    game.emit_broadcast()
 
 
 @socketio.on('disconnect')
 def disconnect():
     player = game.player_by_sid(request.sid)
-    if player is not None:
+    if player:
+        print(f"{player.get('name', '???')}　がdisconn ")
         player['is_playing'] = False
-        game.emit_broadcast()
+
+    gm = game.gm_by_sid(request.sid)
+    if gm is not None:
+        gm['is_playing'] = False
+        print(f"gm{gm['name']}おちた")
+    else:
+        print('playerでないかたがdisconn')
+    game.emit_broadcast()
 
 
 @socketio.on('join')
@@ -312,6 +343,7 @@ def join(name):
     game.suggest_cast_menu()
     emit('message', {'my_name': name}, to=request.sid)
     game.emit_broadcast()
+    print(f"{name}　がjoin ")
 
 
 @socketio.on('leave')
@@ -320,6 +352,13 @@ def leave(name):
     game.id_bin.add(player['pid'])
     game.players.remove(player)
     game.suggest_cast_menu()
+    game.emit_broadcast()
+    print(f"{name}　が退室 ")
+
+
+@socketio.on('submit GM')
+def submit_gm(name):
+    game.gm = {'name': name, 'sid': request.sid, 'is_playing': True}
     game.emit_broadcast()
 
 
@@ -506,12 +545,6 @@ def next_game():
     emit('message', {'opencast': ''}, broadcast=True)
 
 
-@socketio.on('submit GM')
-def submit_gm(name):
-    game.gm_name = name
-    game.emit_broadcast()
-
-
 @socketio.on('change cast')
 def change_cast(new_menu):
     game.adjust_citizen_num(new_menu)
@@ -520,5 +553,5 @@ def change_cast(new_menu):
 
 if __name__ == '__main__':
     # socketio.run(app, host='localhost', debug=True)
-    socketio.run(app)
-    # socketio.run(app, host='192.168.2.60', debug=True)
+    # socketio.run(app)
+    socketio.run(app, host='192.168.2.60', debug=True)
