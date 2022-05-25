@@ -302,20 +302,19 @@ def connect():
     if len(game.players) == 0 or len([p for p in game.players if p['is_playing']]) == 0:
         game = Game()
     name = session.get('name', None)
-    player = game.player_by_name(name)
-    if player:
-        print(f"{player.get('name', '???')}がconn")
-        player['is_playing'] = True
-        player['sid'] = request.sid
-        # game.emit_to_person(player)
-    else:
-        print('playerでないかたがconn')
+    if name:
+        player = game.player_by_name(name)
+        if player:
+            print(f"{player.get('name', '???')}がconn")
+            player['is_playing'] = True
+            player['sid'] = request.sid
+            # game.emit_to_person(player)
 
-    gm = game.gm_by_name(name)
-    if gm is not None:
-        gm['is_playing'] = True
-        gm['sid'] = request.sid
-        print(f"gm{gm['name']}復帰")
+        gm = game.gm_by_name(name)
+        if gm:
+            gm['is_playing'] = True
+            gm['sid'] = request.sid
+            print(f"gm{gm['name']}復帰")
     game.emit_broadcast()
 
 
