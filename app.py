@@ -235,14 +235,16 @@ class Game:
                   }
         self.players.append(player)
 
+
     def emit_broadcast(self, message=None):
+        gm_out = {'name':self.gm.get('name'), 'is_playing':self.gm.get('is_playing')}
         emit('message', {'phase': self.phase,
                          'players': self.players_for_player,
                          'castMenu': self.cast_menu,
                          'ranshiro': self.ranshiro,
                          'renguard': self.renguard,
                          'castmiss': self.castmiss,
-                         'gm': self.gm,
+                         'gm': gm_out,
                          'msg': message
                          }, broadcast=True)
 

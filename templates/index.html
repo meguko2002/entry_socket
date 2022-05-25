@@ -29,7 +29,7 @@
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
                             :disabled="isNotObjected(player)" value="対象"></input>
-                        <button v-if="phase=='参加受付中' && IamGM" v-on:click="submitGM(player.name)">GM</button>
+                        <button v-if="gmButtonEnable" v-on:click="submitGM(player.name)">GM</button>
                         <button v-if="phase=='参加受付中' && (player.name==myName || IamGM)"
                             v-on:click="leave(player)">退出</button>
                     </td>
@@ -44,8 +44,9 @@
                         <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前">
                     </td>
                     <td>
-                        <button v-on:click="join"> 参加 </button>
+
                         <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button>
+                        <button v-on:click="join"> 参加 </button>
                     </td>
                 </tr>
                 <tr v-else-if="IamGM && phase=='昼'">
@@ -55,7 +56,6 @@
                         <button v-on:click="vote('')" :disabled="voted">追放なし</button>
                     </td>
                 </tr>
-
             </table>
 
         </template>
@@ -136,13 +136,23 @@
             },
             computed: {
                 gmButtonEnable: function () {
-                    if (this.gm.name == null) {
+                    if (this.gm.name == null || !this.gm.is_playing){
                         return true
                     }
-                    return !this.gm.is_playing
+                    if(this.IamGM && this.phase=="参加受付中") {
+                        return true
+                    }
+                    return false
+                    
                 },
                 gmSign: function () {
-                    return this.gm.name == null ? '未定' : this.gm.name
+                    if(this.gm.name == null){
+                        return '未定'
+                    }
+                    else if(!this.gm.is_playing){
+                        return this.gm.name+'(断線中)'
+                    }
+                    return this.gm.name
                 },
                 myData: function () {
                     return this.players.find(p => p.name === this.myName)
