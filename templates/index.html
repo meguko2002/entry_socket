@@ -29,8 +29,7 @@
                             :disabled="voted || !player.isAlive">追放</button>
                         <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
                             :disabled="isNotObjected(player)" value="対象"></input>
-                        <button v-if="phase=='参加受付中' && IamGM" v-on:click="submitGM(player.name)"
-                            :disabled="player.name==myName">GM</button>
+                        <button v-if="phase=='参加受付中' && IamGM" v-on:click="submitGM(player.name)">GM</button>
                         <button v-if="phase=='参加受付中' && (player.name==myName || IamGM)"
                             v-on:click="leave(player)">退出</button>
                     </td>
@@ -45,8 +44,8 @@
                         <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前">
                     </td>
                     <td>
-                        <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button>
                         <button v-on:click="join"> 参加 </button>
+                        <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button>
                     </td>
                 </tr>
                 <tr v-else-if="IamGM && phase=='昼'">
@@ -68,9 +67,9 @@
             <button v-if=gameover v-on:click="nextGame">次の試合</button>
             <button v-on:click="resetGame">リセット</button>
         </template>
-        <p class="css-test"> [[ message ]]</p>
+        <p> [[ message ]]</p>
         <template id="casting">
-            <table class="table table-bordered">
+            <table>
                 <tr v-for="(num, name) in castMenu">
                     <td>
                         <label :for="name">[[ name ]]</label>
@@ -137,7 +136,7 @@
             },
             computed: {
                 gmButtonEnable: function () {
-                    if(this.gm.name == null){
+                    if (this.gm.name == null) {
                         return true
                     }
                     return !this.gm.is_playing
@@ -155,7 +154,10 @@
                     return this.myData.pid
                 },
                 banCastControll: function () {
-                    return this.phase != '参加受付中'
+                    if (this.IamGM) {
+                         return this.phase != '参加受付中' 
+                        }
+                    return true
                 },
                 IamGM: function () {
                     if (this.myName == '') {
