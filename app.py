@@ -107,6 +107,7 @@ class Game:
             gamecasts = random.sample(basecasts, len(self.players))
             if '人狼' in gamecasts:
                 break
+
         for player, castname in zip(self.players, gamecasts):
             player['cast'] = [cast for cast in self.casts if cast['name'] == castname][0]
 
