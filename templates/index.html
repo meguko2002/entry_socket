@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <title>人狼@zoom</title>
 </head>
 <style>
@@ -15,269 +17,265 @@
 </style>
 
 <body>
-    <div id="app">
-        <h1>[[phase]]</h1>
-        <template>
-            <table>
-                <tr v-for="player in players" :key="player.pid">
-                    <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
-                    <td v-bind:class={active:!player.isAlive}>[[ player.name ]]
-                        <span v-if="!player.is_playing">(断線中)</span>
-                    </td>
-                    <td>
-                        <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
-                            :disabled="voted || !player.isAlive">追放</button>
-                        <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
-                            :disabled="isNotObjected(player)" value="対象"></input>
-                        <button v-if="gmButtonEnable" v-on:click="submitGM(player.name)">GM</button>
-                        <button v-if="phase=='参加受付中' && (player.name==myName || IamGM)"
-                            v-on:click="leave(player)">退出</button>
-                    </td>
-                    <td>[[ opencast[player.name] ]]</td>
-                    <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
-                    </td>
-                </tr>
+    <div id="app" class="container-sm">
+        <h1 class="pt-5">[[phase]]</h1>
+        <div class="container pt-2">
+            <div class="row " v-for="player in players" :key="player.pid">
+                <div class="col-1" v-bind:class={active:player.name==myName}>[[ player.pid ]]</div>
+                <div class="col-3" v-bind:class={active:!player.isAlive}>[[ player.name ]]
+                    <span v-if="!player.is_playing">(断線中)</span>
+                </div>
+                <button class="btn btn-primary col-2" v-if="phase=='参加受付中' && (player.name==myName || IamGM)"
+                    v-on:click="leave(player)">退出</button>
+                <button class="btn btn-primary col-2" v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
+                    :disabled="voted || !player.isAlive">追放</button>
+                <input class="btn btn-primary col-2" v-if="phase=='深夜'" type="radio" name="targetCand"
+                    v-on:click="action(player)" :disabled="isNotObjected(player)" value="対象"></input>
+                <button class="btn btn-secondary col-2" v-if="gmButtonEnable"
+                    v-on:click="submitGM(player.name)">GM</button>
+                <div class="col-2">[[ opencast[player.name] ]]</div>
+                <div class="col-3" v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
+                </div>
+            </div>
+            <div class="row pt-1" v-if="IamGM && phase=='昼'">
+                <div class="col-3 offset-3">
+                    <button class="btn btn-primary" v-on:click="vote('')" :disabled="voted">追放なし</button>
+                </div>
+            </div>
+            <div class="row pt-1" v-if="phase =='参加受付中' && myId ==0">
+                <input type="text" class="col-3 offset-1 " v-model="myName" :disabled="IamGM" placeholder="お名前">
+                <button class="btn btn-primary col-2" v-on:click="join"> 参加 </button>
+                <button class="btn btn-primary col-2" v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button>
 
-                <tr v-if="phase =='参加受付中' && myId ==0">
-                    <td></td>
-                    <td>
-                        <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前">
-                    </td>
-                    <td>
+            </div>
+            </template>
 
-                        <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button>
-                        <button v-on:click="join"> 参加 </button>
-                    </td>
-                </tr>
-                <tr v-else-if="IamGM && phase=='昼'">
-                    <td></td>
-                    <td></td>
-                    <td>
-                        <button v-on:click="vote('')" :disabled="voted">追放なし</button>
-                    </td>
-                </tr>
-            </table>
+            <p class="pt-2"> [[ message ]]</p>
 
-        </template>
-        <template v-if="IamGM">
-            <button v-if="phase=='参加受付中'" v-on:click=" assignCast">試合開始</button>
-            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
-            <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
-            <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
-            <button v-if=gameover v-on:click="nextGame">次の試合</button>
-            <button v-on:click="resetGame">リセット</button>
-        </template>
-        <p> [[ message ]]</p>
-        <template id="casting">
-            <table>
-                <tr v-for="(num, name) in castMenu">
-                    <td>
+            <div class="container pt-2" v-if="IamGM">
+                <button class="btn btn-primary btn-lg" v-if="phase=='参加受付中'" v-on:click=" assignCast ">試合開始</button>
+                <button class="btn btn-primary btn-lg" type="button" class="btn btn-primary btn-lg" v-if="phase=='昼'"
+                    v-on:click=" judge" :disabled="!voted">結果判定</button>
+                <button class="btn btn-primary btn-lg" v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
+                <button class="btn btn-primary btn-lg" v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
+                <button class="btn btn-primary btn-lg" v-if=gameover v-on:click="nextGame">次の試合</button>
+            </div>
+            <div class="overflow-auto pt-2" style="width:250px; height:250px;">
+                <div class="row" v-for="(num, name) in castMenu">
+                    <div class="col-4 offset-1">
                         <label :for="name">[[ name ]]</label>
-                    </td>
-                    <td>
+                    </div>
+                    <div class="col-3">
                         <input type="number" v-model.number="castMenu[name]" v-on:click=countupdown
                             :disabled="(name=='市民') || banCastControll" id="name" :min="minCastNum(name)" max="100">
-                    </td>
-                </tr>
-            </table>
+                    </div>
+                </div>
+            </div>
+            <div class="container pt-2">
+                <div class=" row">
+                    <label for="renguard" class="col-3">連続ガード</label>
+                    <select class="col-2" id="renguard" v-model="renguard" v-on:change="emitRenguard">
+                        <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
+                            tg.text ]]</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <label for="ranshiro" class="col-3">ランダム白</label>
+                    <select class="col-2" id="ranshiro" v-model="ranshiro" v-on:change="emitRanshiro">
+                        <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
+                            tg.text ]]</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <label for="castmiss" class="col-3">役職欠け</label>
+                    <select class="col-2" id="castmiss" v-model="castmiss" v-on:change="emitCastMiss">
+                        <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class=" pt-2">GM [[ gmSign ]]
+                <span>
+                    <button class="btn btn-primary" type="reset" v-if="IamGM" v-on:click="resetGame">リセット</button>
+                </span>
+            </div>
 
-            <p>連続ガード
-                <select v-model="renguard" v-on:change="emitRenguard">
-                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
-                        tg.text ]]</option>
-                </select>
-            </p>
-            <p>ランダム白
-                <select v-model="ranshiro" v-on:change="emitRanshiro">
-                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
-                        tg.text ]]</option>
-                </select>
-            </p>
-            <p>役職欠け
-                <select v-model="castmiss" v-on:change="emitCastMiss">
-                    <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
-                    </option>
-                </select>
-                <span v-show="castmiss">※必ず一体は人狼がいます</span>
-            </p>
-        </template>
-        <p>GM [[ gmSign ]]</p>
-    </div>
+        </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
-    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
-        integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
-        crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script>
-        const socket = io()
-        Vue.options.delimiters = ['[[', ']]'];
+        <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+        <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
+            integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
+            crossorigin="anonymous"></script>
+        <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+        <script>
+            const socket = io()
+            Vue.options.delimiters = ['[[', ']]'];
 
-        const app = new Vue({
-            el: '#app',
-            data: {
-                players: [],
-                opencast: {},
-                phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
-                myName: '',
-                message: '',
-                voted: false,
-                objects: [], // 各役職の投票対象となるplayer.name
-                wolfTarget: [],
-                castMenu: {},
-                renguard: false,
-                ranshiro: true,
-                castmiss: 0,
-                toggle: [
-                    { text: 'なし', value: false },
-                    { text: 'あり', value: true },
-                ],
-                gm: {},
-            },
-            computed: {
-                gmButtonEnable: function () {
-                    if (this.gm.name == null || !this.gm.is_playing){
-                        return true
-                    }
-                    if(this.IamGM && this.phase=="参加受付中") {
-                        return true
-                    }
-                    return false
-                    
+            const app = new Vue({
+                el: '#app',
+                data: {
+                    players: [],
+                    opencast: {},
+                    phase: "参加受付中",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
+                    myName: '',
+                    message: '',
+                    voted: false,
+                    objects: [], // 各役職の投票対象となるplayer.name
+                    wolfTarget: [],
+                    castMenu: {},
+                    renguard: false,
+                    ranshiro: true,
+                    castmiss: 0,
+                    toggle: [
+                        { text: 'なし', value: false },
+                        { text: 'あり', value: true },
+                    ],
+                    gm: {},
                 },
-                gmSign: function () {
-                    if(this.gm.name == null){
-                        return '未定'
-                    }
-                    else if(!this.gm.is_playing){
-                        return this.gm.name+'(断線中)'
-                    }
-                    return this.gm.name
-                },
-                myData: function () {
-                    return this.players.find(p => p.name === this.myName)
-                },
-                myId: function () {
-                    if (this.myData === undefined) {
-                        return 0
-                    }
-                    return this.myData.pid
-                },
-                banCastControll: function () {
-                    if (this.IamGM) {
-                         return this.phase != '参加受付中' 
+                computed: {
+                    gmButtonEnable: function () {
+                        if (this.gm.name == null || !this.gm.is_playing) {
+                            return true
                         }
-                    return true
-                },
-                IamGM: function () {
-                    if (this.myName == '') {
+                        if (this.IamGM && this.phase == "参加受付中") {
+                            return true
+                        }
                         return false
-                    }
-                    return this.myName == this.gm.name
-                },
-                gameover: function () {
-                    return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
-                },
-                isNotObjected: function () {
-                    return function (player) {
-                        return !this.objects.includes(player.name)
-                    }
-                },
-                minCastNum: function () {
-                    return function (name) {
-                        return name == '人狼' ? 1 : 0
-                    }
-                }
-            },
-            methods: {
-                join: function () {
-                    if (this.myName != '') {
-                        socket.emit('join', this.myName)
-                    }
-                },
-                leave: function (player) {
-                    socket.emit('leave', player.name)
-                },
-                action: function (player) {
-                    socket.emit('do action', player.name)
-                },
-                submitGM: function (name) {
-                    socket.emit('submit GM', name)
-                    this.Message = ""
-                },
-                assignCast: function () {
-                    socket.emit('assign cast', this.castMenu)
-                },
-                vote: function (player) {
-                    socket.emit('vote', player != '' ? player.name : '')
-                    this.voted = true
-                },
-                judge: function () {
-                    socket.emit('judge')
-                    this.voted = false
-                },
-                toMidnight: function () {
-                    socket.emit('offer choices')
-                },
-                nextGame: function () {
-                    socket.emit('next game')
-                },
-                resetGame: function () {
-                    if (confirm('本当にリセットしますか')) {
-                        this.nextGame()
+
+                    },
+                    gmSign: function () {
+                        if (this.gm.name == null) {
+                            return '未定'
+                        }
+                        else if (!this.gm.is_playing) {
+                            return this.gm.name + '(断線中)'
+                        }
+                        return this.gm.name
+                    },
+                    myData: function () {
+                        return this.players.find(p => p.name === this.myName)
+                    },
+                    myId: function () {
+                        if (this.myData === undefined) {
+                            return 0
+                        }
+                        return this.myData.pid
+                    },
+                    banCastControll: function () {
+                        if (this.IamGM) {
+                            return this.phase != '参加受付中'
+                        }
+                        return true
+                    },
+                    IamGM: function () {
+                        if (this.myName == '') {
+                            return false
+                        }
+                        return this.myName == this.gm.name
+                    },
+                    gameover: function () {
+                        return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
+                    },
+                    isNotObjected: function () {
+                        return function (player) {
+                            return !this.objects.includes(player.name)
+                        }
+                    },
+                    minCastNum: function () {
+                        return function (name) {
+                            return name == '人狼' ? 1 : 0
+                        }
                     }
                 },
-                countupdown: function () {
-                    socket.emit('change cast', this.castMenu)
+                methods: {
+                    join: function () {
+                        if (this.myName != '') {
+                            socket.emit('join', this.myName)
+                        }
+                    },
+                    leave: function (player) {
+                        socket.emit('leave', player.name)
+                    },
+                    action: function (player) {
+                        socket.emit('do action', player.name)
+                    },
+                    submitGM: function (name) {
+                        socket.emit('submit GM', name)
+                        this.Message = ""
+                    },
+                    assignCast: function () {
+                        socket.emit('assign cast', this.castMenu)
+                    },
+                    vote: function (player) {
+                        socket.emit('vote', player != '' ? player.name : '')
+                        this.voted = true
+                    },
+                    judge: function () {
+                        socket.emit('judge')
+                        this.voted = false
+                    },
+                    toMidnight: function () {
+                        socket.emit('offer choices')
+                    },
+                    nextGame: function () {
+                        socket.emit('next game')
+                    },
+                    resetGame: function () {
+                        if (confirm('本当にリセットしますか')) {
+                            this.nextGame()
+                        }
+                    },
+                    countupdown: function () {
+                        socket.emit('change cast', this.castMenu)
+                    },
+                    emitRenguard: function () {
+                        socket.emit('set renguard', this.renguard)
+                    },
+                    emitRanshiro: function () {
+                        socket.emit('set ranshiro', this.ranshiro)
+                    },
+                    emitCastMiss: function () {
+                        socket.emit('set castmiss', this.castmiss)
+                    },
                 },
-                emitRenguard: function () {
-                    socket.emit('set renguard', this.renguard)
-                },
-                emitRanshiro: function () {
-                    socket.emit('set ranshiro', this.ranshiro)
-                },
-                emitCastMiss: function () {
-                    socket.emit('set castmiss', this.castmiss)
-                },
-            },
-            created: function () {
-                axios.get('/session')
-                    .then(response => {
-                        this.myName = response.data['name'];
-                    })
-                socket.on('message', (data) => {
-                    if ("phase" in data) { this.phase = data.phase }
-                    if ("msg" in data) { this.message = data.msg }
-                    if ("my_name" in data) { this.myName = data.my_name }
-                    if ("players" in data) {
-                        this.players = data.players.sort((a, b) => {
-                            return a.pid - b.pid
+                created: function () {
+                    axios.get('/session')
+                        .then(response => {
+                            this.myName = response.data['name'];
                         })
-                    }
-                    if ("gm" in data) { this.gm = data.gm }
-                    if ("opencast" in data) { this.opencast = data.opencast }
-                    if ("objects" in data) {
-                        this.objects = data.objects
-                    }
-                    if ("wolf_target" in data) {
-                        this.wolfTarget = data.wolf_target
-                    }
-                    if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
-                        this.castMenu = data.castMenu
-                    }
-                    if ("ranshiro" in data) {
-                        this.ranshiro = data.ranshiro
-                    }
-                    if ("renguard" in data) {
-                        this.renguard = data.renguard
-                    }
-                    if ("castmiss" in data) {
-                        this.castmiss = data.castmiss
-                    }
-                })
-            },
-        })
-    </script>
+                    socket.on('message', (data) => {
+                        if ("phase" in data) { this.phase = data.phase }
+                        if ("msg" in data) { this.message = data.msg }
+                        if ("my_name" in data) { this.myName = data.my_name }
+                        if ("players" in data) {
+                            this.players = data.players.sort((a, b) => {
+                                return a.pid - b.pid
+                            })
+                        }
+                        if ("gm" in data) { this.gm = data.gm }
+                        if ("opencast" in data) { this.opencast = data.opencast }
+                        if ("objects" in data) {
+                            this.objects = data.objects
+                        }
+                        if ("wolf_target" in data) {
+                            this.wolfTarget = data.wolf_target
+                        }
+                        if ("castMenu" in data) {   //市民は自動計算するために、castMenuを書き換える
+                            this.castMenu = data.castMenu
+                        }
+                        if ("ranshiro" in data) {
+                            this.ranshiro = data.ranshiro
+                        }
+                        if ("renguard" in data) {
+                            this.renguard = data.renguard
+                        }
+                        if ("castmiss" in data) {
+                            this.castmiss = data.castmiss
+                        }
+                    })
+                },
+            })
+        </script>
 </body>
 
 </html>

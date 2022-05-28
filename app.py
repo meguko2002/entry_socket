@@ -52,8 +52,15 @@ CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
          {'name': '騎士', 'team': 'white', 'color': 'white'},
          {'name': '霊媒師', 'team': 'white', 'color': 'white'},
          {'name': '狂人', 'team': 'black', 'color': 'white'},
-         {'name': '狂信者', 'team': 'black', 'color': 'white'},
          {'name': '市民', 'team': 'white', 'color': 'white'},
+         {'name': '狂信者', 'team': 'black', 'color': 'white'},
+         {'name': 'サイコ', 'team': 'black', 'color': 'white'},
+         {'name': 'ハンター', 'team': 'white', 'color': 'white'},
+         {'name': 'パパラッチ', 'team': 'white', 'color': 'white'},
+         {'name': 'ボマー', 'team': 'white', 'color': 'white'},
+         {'name': '恋人', 'team': 'white', 'color': 'white'},
+         {'name': '精霊使い', 'team': 'white', 'color': 'white'},
+         {'name': 'パンツA', 'team': 'gray', 'color': 'gray'},
          ]
 
 
@@ -63,7 +70,7 @@ class Game:
         self.casts = CASTS
         self.phase = '参加受付中'
         self.dead_players = []
-        self.cast_menu = None
+        self.cast_menu = {}
         self.ranshiro = None
         self.renguard = None
         self.castmiss = None  # True: 役職欠けあり
@@ -184,7 +191,15 @@ class Game:
             self.cast_menu['市民'] = len(game.players) - non_villager_num + int(self.castmiss)
 
     def suggest_cast_menu(self):
-        self.cast_menu = REGURATION[len(self.players)]['cast_menu']
+        all_cast = [c['name'] for c in CASTS]
+        recommended_cast_list = REGURATION[len(self.players)]['cast_menu']
+        for cast in all_cast:
+            if cast in recommended_cast_list:
+                self.cast_menu[cast] = recommended_cast_list[cast]
+            else:
+                self.cast_menu[cast] =0
+
+                # self.cast_menu = all_cast.update(REGURATION[len(self.players)]['cast_menu'])
         self.ranshiro = REGURATION[len(self.players)]['ranshiro']
         self.renguard = REGURATION[len(self.players)]['renguard']
         self.castmiss = REGURATION[len(self.players)]['castmiss']  # True: 役職欠けあり
@@ -235,9 +250,8 @@ class Game:
                   }
         self.players.append(player)
 
-
     def emit_broadcast(self, message=None):
-        gm_out = {'name':self.gm.get('name'), 'is_playing':self.gm.get('is_playing')}
+        gm_out = {'name': self.gm.get('name'), 'is_playing': self.gm.get('is_playing')}
         emit('message', {'phase': self.phase,
                          'players': self.players_for_player,
                          'castMenu': self.cast_menu,
@@ -254,6 +268,22 @@ class Game:
     #     for key in send_keys:
     #         p_select[key] = player.get(key)
     #     emit('message', p_select, to=player['sid'])
+    def disconnect_player(self, sid):
+        player = self.player_by_sid(sid)
+        if player:
+            player['is_playing'] = False
+
+    def disconnect_gm(self, sid):
+        gm = self.gm_by_sid(sid)
+        if gm is not None:
+            gm['is_playing'] = False
+
+    def no_one_here(self):
+        if len(self.players) == 0:
+            return True
+        if len([p for p in game.players if p['is_playing']]) == 0:
+            return True
+        return False
 
 
 def target_set(wolf, target):
@@ -302,8 +332,9 @@ def host():
 def connect():
     global game
     # # # 入った時、参加者がいない場合、それまでのゲームは破棄されて新たなゲームが立ち上がる
-    if len(game.players) == 0 or len([p for p in game.players if p['is_playing']]) == 0:
+    if game.no_one_here():
         game = Game()
+
     name = session.get('name', None)
     if name:
         player = game.player_by_name(name)
@@ -323,17 +354,8 @@ def connect():
 
 @socketio.on('disconnect')
 def disconnect():
-    player = game.player_by_sid(request.sid)
-    if player:
-        print(f"{player.get('name', '???')}　がdisconn ")
-        player['is_playing'] = False
-
-    gm = game.gm_by_sid(request.sid)
-    if gm is not None:
-        gm['is_playing'] = False
-        print(f"gm{gm['name']}おちた")
-    else:
-        print('playerでないかたがdisconn')
+    game.disconnect_player(request.sid)
+    game.disconnect_gm(request.sid)
     game.emit_broadcast()
 
 
@@ -542,8 +564,7 @@ def next_game():
     game.player_reset()
     game.cast_reset()
     game.phase = '参加受付中'
-    message = '参加受付中'
-    game.emit_broadcast(message=message)
+    game.emit_broadcast()
     emit('message', {'opencast': ''}, broadcast=True)
 
 
