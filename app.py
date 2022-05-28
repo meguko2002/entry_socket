@@ -2,12 +2,15 @@ from flask import Flask, render_template, request, redirect, session, url_for, j
 from flask_socketio import SocketIO, emit
 from flask_session import Session
 import random
+
+
 import hashlib
 
 # dat = 'python'  # SHA224のハッシュ値
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'top-secret!'
+app.secret_key = 'pokoshi'
+app.config["SESSION_PERMANENT"] = True
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 socketio = SocketIO(app, manage_session=False)
