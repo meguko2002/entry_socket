@@ -10,7 +10,7 @@ import hashlib
 
 app = Flask(__name__)
 app.secret_key = 'pokoshi'
-app.config["SESSION_PERMANENT"] = True
+# app.config["SESSION_PERMANENT"] = True
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 socketio = SocketIO(app, manage_session=False)
