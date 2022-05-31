@@ -4,10 +4,10 @@ from flask_session import Session
 import random
 
 
+
 import hashlib
 
 # dat = 'python'  # SHA224のハッシュ値
-
 app = Flask(__name__)
 app.secret_key = 'pokoshi'
 # app.config["SESSION_PERMANENT"] = True
@@ -557,6 +557,6 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    # socketio.run(app, host='localhost', debug=True)
+    socketio.run(app, host='localhost', debug=True)
     # socketio.run(app)
-    socketio.run(app, host='192.168.2.60', debug=True)
+    # socketio.run(app, host='192.168.2.60', debug=True)
