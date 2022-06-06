@@ -298,7 +298,7 @@ def host():
         return render_template('host.html')
     global game
     game = Game()
-    return redirect('/')
+    return redirect('/room')
 
 
 @socketio.on('connect')
