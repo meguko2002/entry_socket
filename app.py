@@ -1,17 +1,18 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 from flask_socketio import SocketIO, emit
 from flask_session import Session
+from flask_debugtoolbar import DebugToolbarExtension
+import logging
 import random
 
 
-
-import hashlib
-
-# dat = 'python'  # SHA224のハッシュ値
 app = Flask(__name__)
-app.secret_key = 'pokoshi'
+app.config['SECRETE_KEY'] = 'ASfeSADFewafEWAVDCX'
 # app.config["SESSION_PERMANENT"] = True
 app.config['SESSION_TYPE'] = 'filesystem'
+app.logger.setLevel(logging.DEBUG)
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS']=False
+toolbar = DebugToolbarExtension(app)
 Session(app)
 socketio = SocketIO(app, manage_session=False)
 
@@ -557,6 +558,6 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='localhost', debug=True)
+    socketio.run(app, debug=True)
     # socketio.run(app)
     # socketio.run(app, host='192.168.2.60', debug=True)
