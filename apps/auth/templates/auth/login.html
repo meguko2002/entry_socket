@@ -1,19 +1,14 @@
 {% extends "auth/base.html" %}
-{% block title %}ユーザー新規登録{% endblock %}
+{% block title %}ログイン{% endblock %}
 {% block content %}
-<h2>ユーザー新規登録</h2>
+<h2>ログイン</h2>
 
-<form action="{{ url_for('auth.signup', next=request.args.get('next')) }}" method="POST" novalidate="novalidate">
+<form action="{{ url_for('auth.login', next=request.args.get('next')) }}" method="POST" novalidate="novalidate">
     {% for message in get_flashed_messages() %}
     <p style="color: red;">{{ message }}</p>
     {% endfor %}
 
     {{ form.csrf_token }}
-
-    <p>{{ form.username.label }} {{ form.username(size=30, placeholder="ユーザ名") }}</p>
-    {% for error in form.username.errors %}
-    <span style="color: red;">{{ error }}</span>
-    {% endfor %}
 
     <p>{{ form.email.label }} {{ form.email(placeholder="メールアドレス") }}</p>
     {% for error in form.email.errors %}
