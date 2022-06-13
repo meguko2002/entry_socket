@@ -66,7 +66,7 @@ def delete_user(user_id):
 
 
 @crud.route("/sql")
-@login_required
+# @login_required
 def sql():
-    db.session.query(User).filter_by(id=2).all()
+    db.session.query(User).get(2)
     return "コンソールログを確認してください"
