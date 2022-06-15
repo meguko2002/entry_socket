@@ -1,18 +1,11 @@
 from flask import render_template, request,\
     redirect, session, url_for, jsonify
 from flask_socketio import emit
-from datetime import timedelta
+
 import random
 from testapp import app, socketio
 from testapp import db
 from testapp.models.player import Player
-
-
-app.secret_key ='sadfsaEFFSAefsa'
-app.permanent_session_lifetime = timedelta(minutes=30)
-app.config['SESSION_TYPE'] = 'filesystem'
-# socketio = SocketIO(app, manage_session=False)
-game = None
 
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
@@ -61,11 +54,10 @@ CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
 
 
 class Game:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
         self.players = []
         self.casts = CASTS
-        self.phase = '参加受付中'
+        self.phase = '村おこし'
         self.dead_players = []
         self.cast_menu = None
         self.ranshiro = None
@@ -251,13 +243,8 @@ class Game:
                          'msg': message
                          }, broadcast=True)
 
-    # def emit_to_person(self, player):
-    #     send_keys = ['name', 'objects', 'opencast']
-    #     p_select = {}
-    #     for key in send_keys:
-    #         p_select[key] = player.get(key)
-    #     emit('message', p_select, to=player['sid'])
 
+game = Game()
 
 def target_set(wolf, target):
     pre_target = wolf.get('target')
@@ -317,9 +304,10 @@ def host():
 def connect():
     global game
     # # # 入った時、参加者がいない場合、それまでのゲームは破棄されて新たなゲームが立ち上がる
-    if len(game.players) == 0 or len([p for p in game.players if p['is_playing']]) == 0:
-        game = Game()
+    # if len(game.players) == 0 or len([p for p in game.players if p['is_playing']]) == 0:
+    #     game = Game()
     name = session.get('name', None)
+    print(name)
     if name:
         player = game.player_by_name(name)
         if player:
@@ -355,14 +343,12 @@ def disconnect():
 @socketio.on('join')
 def join(name):
     # メンバー登録
-    player = Player(
-        name=request.form['player_name'],
-        is_gm=True
-    )
-    db.session.add(player)
-    db.session.commit()
-
-
+    # player = Player(
+    #     name=request.form['player_name'],
+    #     is_gm=True
+    # )
+    # db.session.add(player)
+    # db.session.commit()
     session['name'] = name
     game.append_new_player(request.sid, name)
     game.suggest_cast_menu()
@@ -383,7 +369,6 @@ def leave(name):
 
 @socketio.on('generate village')
 def generate_village(village_name):
-    print('来たわ')
     global game
     game = Game()
     game.phase = '参加受付中'
