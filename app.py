@@ -1,19 +1,12 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 from flask_socketio import SocketIO, emit
-from flask_session import Session
-from flask_debugtoolbar import DebugToolbarExtension
-import logging
+from datetime import timedelta
 import random
 
-
 app = Flask(__name__)
-app.config['SECRETE_KEY'] = 'ASfeSADFewafEWAVDCX'
-# app.config["SESSION_PERMANENT"] = True
+app.secret_key ='sadfsaEFFSAefsa'
+app.permanent_session_lifetime = timedelta(minutes=30)
 app.config['SESSION_TYPE'] = 'filesystem'
-app.logger.setLevel(logging.DEBUG)
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS']=False
-toolbar = DebugToolbarExtension(app)
-Session(app)
 socketio = SocketIO(app, manage_session=False)
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
@@ -278,7 +271,7 @@ game = Game()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('room.html')
 
 
 @app.route('/session')
