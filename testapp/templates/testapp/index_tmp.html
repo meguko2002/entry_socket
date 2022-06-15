@@ -2,15 +2,14 @@
 
 {% block contents %}
 <h1>村をおこす</h1>
-<div>
-    <form action="/" method="post">
+    <form action="{{ url_for('village') }}" method="post">
         <div> <label for="village_name">村の名前</label>
             <input type=" text" id="village_name" name="village_name">
         </div>
-        <div> <label for="your_name">村長の名前</label>
-            <input type=" text" id="your_name" name="village_name">
+        <div> <label for="player_name">村長の名前</label>
+            <input type=" text" id="player_name" name="player_name">
         </div>
         <input type="submit" value="入室">
     </form>
-</div>
+
 {% endblock %}

@@ -1,13 +1,19 @@
-from flask import Flask, render_template, request, redirect, session, url_for, jsonify
-from flask_socketio import SocketIO, emit
+from flask import render_template, request,\
+    redirect, session, url_for, jsonify
+from flask_socketio import emit
 from datetime import timedelta
 import random
+from testapp import app, socketio
+from testapp import db
+from testapp.models.player import Player
 
-app = Flask(__name__)
+
 app.secret_key ='sadfsaEFFSAefsa'
 app.permanent_session_lifetime = timedelta(minutes=30)
 app.config['SESSION_TYPE'] = 'filesystem'
-socketio = SocketIO(app, manage_session=False)
+# socketio = SocketIO(app, manage_session=False)
+game = None
+
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
 REGURATION = {0: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 0},
@@ -55,7 +61,8 @@ CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
 
 
 class Game:
-    def __init__(self):
+    def __init__(self, name):
+        self.name = name
         self.players = []
         self.casts = CASTS
         self.phase = '参加受付中'
@@ -232,7 +239,6 @@ class Game:
                   }
         self.players.append(player)
 
-
     def emit_broadcast(self, message=None):
         gm_out = {'name':self.gm.get('name'), 'is_playing':self.gm.get('is_playing')}
         emit('message', {'phase': self.phase,
@@ -266,12 +272,9 @@ def target_set(wolf, target):
     return True
 
 
-game = Game()
-
-
 @app.route('/')
 def index():
-    return render_template('room.html')
+    return render_template('testapp/index.html')
 
 
 @app.route('/session')
@@ -288,11 +291,26 @@ def favicon():
 # サーバーをリセット
 @app.route('/host', methods=['GET', 'POST'])
 def host():
-    if request.method == 'GET':
-        return render_template('host.html')
-    global game
-    game = Game()
-    return redirect('/room')
+    if request.method == 'POST':
+        global game
+        game = Game()
+        return redirect(url_for('index'))
+    return render_template('testapp/host.html')
+
+
+# @app.route('/village', methods=['GET', 'POST'])
+# def village():
+#     global game
+#     if request.method == 'POST':
+#         player = Player(
+#             name=request.form['player_name'],
+#             is_gm=True
+#         )
+#         db.session.add(player)
+#         db.session.commit()
+#         game = Game()
+#         return redirect(url_for('village'))
+#     return render_template('testapp/index.html')
 
 
 @socketio.on('connect')
@@ -337,6 +355,14 @@ def disconnect():
 @socketio.on('join')
 def join(name):
     # メンバー登録
+    player = Player(
+        name=request.form['player_name'],
+        is_gm=True
+    )
+    db.session.add(player)
+    db.session.commit()
+
+
     session['name'] = name
     game.append_new_player(request.sid, name)
     game.suggest_cast_menu()
@@ -353,6 +379,14 @@ def leave(name):
     game.suggest_cast_menu()
     game.emit_broadcast()
     print(f"{name}　が退室 ")
+
+
+@socketio.on('generate village')
+def generate_village(village_name):
+    print('来たわ')
+    global game
+    game = Game()
+    game.phase = '参加受付中'
 
 
 @socketio.on('submit GM')
@@ -550,7 +584,7 @@ def change_cast(new_menu):
     game.emit_broadcast()
 
 
-if __name__ == '__main__':
-    socketio.run(app, debug=True)
+# if __name__ == '__main__':
+#     socketio.run(app, debug=True)
     # socketio.run(app)
     # socketio.run(app, host='192.168.2.60', debug=True)

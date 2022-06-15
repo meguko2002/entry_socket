@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+
+{% block contents %}
+    <div id="app">ゲームリセット
+        <form action="/host" method="POST" id="resetGame">
+            <button form="resetGame">実行</button>
+        </form>
+    </div>
+{% endblock %}
