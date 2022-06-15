@@ -57,8 +57,7 @@
         </table>
     </template>
     <template v-if="IamGM">
-        <button v-if="phase=='参加受付中'" v-on:click=" assignCast">試合開始</button>
-
+        <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="players.length==0" >試合開始</button>
         <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
         <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
         <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>

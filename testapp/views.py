@@ -1,12 +1,11 @@
 from flask import render_template, request,\
     redirect, session, url_for, jsonify
 from flask_socketio import emit
-
 import random
 from testapp import app, socketio
 from testapp import db
 from testapp.models.player import Player
-
+# 起動の仕方は(venv)entry_socket 配下で python server.py とする。https://qiita.com/Bashi50/items/e3459ca2a4661ce5dac6
 
 # https://osaka-jinro-lab.com/article/osusumehaiyaku/?fbclid=IwAR3zza4CUZ20vOKWbIE1ALGaZAXkj0hEz8ZM40CzFlthUWbwkDokZwrbki4
 REGURATION = {0: {'cast_menu': {"人狼": 1, "狂人": 0, "占い師": 0, "騎士": 0, "霊媒師": 0, "狂信者": 0, "市民": 0},
