@@ -263,7 +263,7 @@ class Game:
 
 
 games = []
-
+name_list=[]
 
 def on_game():
     village_name = session.get('village_name')
@@ -292,7 +292,7 @@ def index():
 
 @app.route('/session')
 def session_access():
-    name = session.get('my_name', '')
+    name = session.get('my_name')
     return jsonify({'name': name})
 
 
@@ -311,11 +311,12 @@ def favicon():
 #     return render_template('testapp/host.html')
 
 
-@socketio.on('generate village')
-def generate_village(data):
+@socketio.on('create village')
+def create_village(data):
+
     my_name = data.get('my_name')
-    assert my_name
     session['my_name'] = my_name
+
     # 同一の村の名前がすでにあるか調べる
     village_name = data.get('village_name')
     assert village_name
@@ -327,24 +328,32 @@ def generate_village(data):
         game.set_gm(request.sid, my_name)
         game.phase = '参戦受付中'
         games.append(game)  # アプリに新しい村追加
-        session['village_name'] = village_name  # 村建てた人のsessionにgameを登録
+        session['village_name'] = village_name
         join_room(village_name)
         game.emit_broadcast()
+
+def on_game():
+    village_name = session.get('village_name')
+    if village_name:
+        return next((game for game in games if game.village_name == village_name), None)
+    return None
 
 
 @socketio.on('enter village')
 def enter_village(data):
-    my_name = data.get('my_name')
-    assert my_name
-    session['my_name'] = my_name
+    # my_name = data.get('my_name')
+    # assert my_name
+    # session['my_name'] = my_name
     village_name = data.get('village_name')
     assert village_name
-    for game in games:
-        if game.village_name == village_name:
-            session['village_name'] = village_name
-            join_room(village_name)
-            game.emit_broadcast()
-            break
+    game = next((game for game in games if game.village_name == village_name), None)
+    if game:
+        session['village_name'] = village_name
+        join_room(village_name)
+        if data.get('my_name') in [p['name'] for p in game.players]:
+            pass
+        game.emit_broadcast()
+
     else:
         emit('message', {'msg': '村がありません'})
 
@@ -377,51 +386,34 @@ def leave(name):
 #         game = Game()
 #         return redirect(url_for('village'))
 #     return render_template('testapp/index.html')
-
-
 @socketio.on('connect')
 def connect():
     game = on_game()
-    if game:
-        player = game.player_by_name(session.get('my_name'))
+    my_name = session.get('my_name')
+    if game and my_name:
+        player = game.player_by_name(my_name)
         if player:
             player['is_playing'] = True
             player['sid'] = request.sid
             join_room(game.village_name)
+        if session['my_name'] == game.gm['name']:
+            game.gm['is_playing'] = True
+            game.gm['sid'] = request.sid
         game.emit_broadcast()
 
-    # if name:
-    #     player = game.player_by_name(name)
-    #     if player:
-    #         print(f"{player.get('name', '???')}がconn")
-    #         player['is_playing'] = True
-    #         player['sid'] = request.sid
-    #         # game.emit_to_person(player)
-    #
-    #     gm = game.gm_by_name(name)
-    #     if gm:
-    #         gm['is_playing'] = True
-    #         gm['sid'] = request.sid
-    #         print(f"gm{gm['name']}復帰")
-    # game.emit_broadcast()
-#
-#
-# @socketio.on('disconnect')
-# def disconnect():
-#     player = game.player_by_sid(request.sid)
-#     if player:
-#         print(f"{player.get('name', '???')}　がdisconn ")
-#         player['is_playing'] = False
-#
-#     gm = game.gm_by_sid(request.sid)
-#     if gm is not None:
-#         gm['is_playing'] = False
-#         print(f"gm{gm['name']}おちた")
-#     else:
-#         print('playerでないかたがdisconn')
-#     game.emit_broadcast()
-#
-#
+
+@socketio.on('disconnect')
+def disconnect():
+    game = on_game()
+    if game:
+        player = game.player_by_sid(request.sid)
+        if player:
+            player['is_playing'] = False
+        if game.gm['sid'] == request.sid:
+            game.gm['is_playing'] = False
+        game.emit_broadcast()
+
+
 # @socketio.on('leave')
 # def leave(name):
 #     player = game.player_by_name(name)

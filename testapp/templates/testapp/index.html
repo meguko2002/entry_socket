@@ -13,8 +13,13 @@
             <label for="myName">あなたの名前</label>
             <input type=" text" v-model="myName" id="myName" placeholder="あなたの名前">
         </div>
-        <button v-on:click="generateVillage">村を立てる</button>
-        <button v-on:click="enterVillage">村に入る</button>
+        <div>
+            <button v-on:click="enterVillage">村に入る</button>
+        </div>
+        <div>
+            <button v-on:click="createVillage">村を立てる</button>
+        </div>
+
         <p> [[ message ]]</p>
     </template>
 
@@ -45,11 +50,9 @@
             <tr v-if="phase =='参戦受付中' && myId ==0">
                 <td></td>
                 <td>
-                    <!-- <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前"> -->
-                    [[ myName ]]
+                    <input type="text" v-model="myName">
                 </td>
                 <td>
-                    <!-- <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button> -->
                     <button v-on:click="joinGame"> 参戦 </button>
                 </td>
             </tr>
@@ -200,9 +203,9 @@
             }
         },
         methods: {
-            generateVillage: function () {
+            createVillage: function () {
                 if (this.myName != '' && this.villageName != '') {
-                    socket.emit('generate village',
+                    socket.emit('create village',
                         { 'village_name': this.villageName, 'my_name': this.myName }
                     )
                 }
