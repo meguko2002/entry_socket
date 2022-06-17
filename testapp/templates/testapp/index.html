@@ -2,20 +2,25 @@
 
 {% block contents %}
 <div id="app">
-    <h1>[[phase]]</h1>
 
     <template v-if="phase =='村おこし'">
+        <h1>人狼@zoom</h1>
         <div>
-            <input type=" text" v-model="villageName" placeholder="村の名前">
+            <label for="villageName">村の名前</label>
+            <input type=" text" v-model="villageName" id="villageName" placeholder="村の名前">
         </div>
         <div>
-            <input type=" text" v-model="myName" placeholder="あなたの名前">
+            <label for="myName">あなたの名前</label>
+            <input type=" text" v-model="myName" id="myName" placeholder="あなたの名前">
         </div>
-        <button v-on:click="generateVillage">村おこし</button>
+        <button v-on:click="generateVillage">村を立てる</button>
+        <button v-on:click="enterVillage">村に入る</button>
+        <p> [[ message ]]</p>
     </template>
 
-
     <template v-else>
+        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <h1>[[phase]]</h1>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -27,8 +32,8 @@
                         :disabled="voted || !player.isAlive">追放</button>
                     <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
                         :disabled="isNotObjected(player)" value="対象"></input>
-                    <button v-if="phase=='参加受付中' && (player.name==myName || IamGM)"
-                        v-on:click="leave(player)">退出</button>
+                    <button v-if="phase=='参戦受付中' && (player.name==myName || IamGM)"
+                        v-on:click="leave(player)">退却</button>
                     <button v-if="gmButtonEnable && player.name != gm.name"
                         v-on:click="submitGM(player.name)">GM</button>
                 </td>
@@ -37,14 +42,15 @@
                 </td>
             </tr>
 
-            <tr v-if="phase =='参加受付中' && myId ==0">
+            <tr v-if="phase =='参戦受付中' && myId ==0">
                 <td></td>
                 <td>
-                    <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前">
+                    <!-- <input type="text" v-model="myName" :disabled="IamGM" placeholder="お名前"> -->
+                    [[ myName ]]
                 </td>
                 <td>
                     <!-- <button v-if="gmButtonEnable" v-on:click="submitGM(myName)">GM</button> -->
-                    <button v-on:click="join"> 参加 </button>
+                    <button v-on:click="joinGame"> 参戦 </button>
                 </td>
             </tr>
             <tr v-else-if="IamGM && phase=='昼'">
@@ -55,54 +61,53 @@
                 </td>
             </tr>
         </table>
-    </template>
-    <template v-if="IamGM">
-        <button v-if="phase=='参加受付中'" v-on:click=" assignCast" :disabled="players.length==0" >試合開始</button>
-        <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
-        <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
-        <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
-        <button v-if=gameover v-on:click="nextGame">次の試合</button>
 
-    </template>
-    <p> [[ message ]]</p>
-    <template>
-        <table>
-            <tr v-for="(num, name) in castMenu">
-                <td>
-                    <label :for="name">[[ name ]]</label>
-                </td>
-                <td>
-                    <input type="number" v-model.number="castMenu[name]" v-on:click=countupdown
-                        :disabled="(name=='市民') || banCastControll" id="name" :min="minCastNum(name)" max="100">
-                </td>
-            </tr>
-        </table>
+        <template v-if="IamGM">
+            <button v-if="phase=='参戦受付中'" v-on:click=" assignCast" :disabled="players.length==0">試合開始</button>
+            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
+            <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
+            <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
+            <button v-if=gameover v-on:click="nextGame">次の試合</button>
+        </template>
+        <p> [[ message ]]</p>
+        <template>
+            <table>
+                <tr v-for="(num, name) in castMenu">
+                    <td>
+                        <label :for="name">[[ name ]]</label>
+                    </td>
+                    <td>
+                        <input type="number" v-model.number="castMenu[name]" v-on:click=countupdown
+                            :disabled="(name=='市民') || banCastControll" id="name" :min="minCastNum(name)" max="100">
+                    </td>
+                </tr>
+            </table>
 
-        <p>連続ガード
-            <select v-model="renguard" v-on:change="emitRenguard">
-                <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
-                    tg.text ]]</option>
-            </select>
-        </p>
-        <p>ランダム白
-            <select v-model="ranshiro" v-on:change="emitRanshiro">
-                <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
-                    tg.text ]]</option>
-            </select>
-        </p>
-        <p>役職欠け
-            <select v-model="castmiss" v-on:change="emitCastMiss">
-                <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
-                </option>
-            </select>
-            <span v-show="castmiss">※必ず一体は人狼がいます</span>
-        </p>
-    </template>
+            <p>連続ガード
+                <select v-model="renguard" v-on:change="emitRenguard">
+                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
+                        tg.text ]]</option>
+                </select>
+            </p>
+            <p>ランダム白
+                <select v-model="ranshiro" v-on:change="emitRanshiro">
+                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
+                        tg.text ]]</option>
+                </select>
+            </p>
+            <p>役職欠け
+                <select v-model="castmiss" v-on:change="emitCastMiss">
+                    <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
+                    </option>
+                </select>
+                <span v-show="castmiss">※必ず一体は人狼がいます</span>
+            </p>
+        </template>
 
-    <template >
-        <p>GM [[ gmSign ]]</p>
-        <button v-if="IamGM && phase=='参加受付中'" v-on:click="gmChange=!gmChange">GM交代</button>
-        <button v-if="IamGM" v-on:click="resetGame">リセット</button>
+        <template>
+            <button v-if="IamGM && phase=='参戦受付中'" v-on:click="gmChange=!gmChange">GM交代</button>
+            <button v-if="IamGM" v-on:click="resetGame">リセット</button>
+        </template>
     </template>
 </div>
 
@@ -120,7 +125,7 @@
         data: {
             players: [],
             opencast: {},
-            phase: "村おこし",  //["参加受付中", "参加者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
+            phase: "村おこし",  //["参戦受付中", "参戦者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
             myName: '',
             message: '',
             voted: false,
@@ -135,7 +140,7 @@
                 { text: 'あり', value: true },
             ],
             gm: {},
-            villageName: "朝活",
+            villageName: "朝活村",
             gmChange: false
         },
         computed: {
@@ -144,7 +149,7 @@
                 if (this.gm.name == null || !this.gm.is_playing) {
                     return true
                 }
-                if (this.IamGM && this.phase == "参加受付中") {
+                if (this.IamGM && this.phase == "参戦受付中") {
                     return true
                 }
                 return false
@@ -170,7 +175,7 @@
             },
             banCastControll: function () {
                 if (this.IamGM) {
-                    return this.phase != '参加受付中'
+                    return this.phase != '参戦受付中'
                 }
                 return true
             },
@@ -197,13 +202,21 @@
         methods: {
             generateVillage: function () {
                 if (this.myName != '' && this.villageName != '') {
-                    socket.emit('generate village', this.villageName)
-                    socket.emit('submit GM', this.myName)
+                    socket.emit('generate village',
+                        { 'village_name': this.villageName, 'my_name': this.myName }
+                    )
                 }
             },
-            join: function () {
+            enterVillage: function () {
+                if (this.myName != '' && this.villageName != '') {
+                    socket.emit('enter village',
+                        { 'village_name': this.villageName, 'my_name': this.myName }
+                    )
+                }
+            },
+            joinGame: function () {
                 if (this.myName != '') {
-                    socket.emit('join', this.myName)
+                    socket.emit('join game')
                 }
             },
             leave: function (player) {
