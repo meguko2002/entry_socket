@@ -19,7 +19,6 @@
         <div>
             <button v-on:click="createVillage">村を立てる</button>
         </div>
-
         <p> [[ message ]]</p>
     </template>
 
@@ -219,7 +218,7 @@
             },
             joinGame: function () {
                 if (this.myName != '') {
-                    socket.emit('join game')
+                    socket.emit('join game', this.myName)
                 }
             },
             leave: function (player) {

@@ -225,14 +225,15 @@ class Game:
 
     ############################################################################
     @property
-    def broadcast_info(self):
+    def broadcast_info(self, msg=None):
         return {'phase': self.phase,
                 'players': self.players_for_player,
                 'castMenu': self.cast_menu,
                 'ranshiro': self.ranshiro,
                 'renguard': self.renguard,
                 'castmiss': self.castmiss,
-                'gm': self.gm
+                'gm': self.gm,
+                'msg':msg
                 }
 
     def emit_broadcast(self, message=None):
@@ -359,10 +360,10 @@ def enter_village(data):
 
 
 @socketio.on('join game')
-def join_game():
+def join_game(my_name):
     game = on_game()
-    my_name = session.get('my_name')
     assert my_name
+    session['my_name'] = my_name
     game.append_new_player(request.sid, my_name)
     game.emit_broadcast()
 
