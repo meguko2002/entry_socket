@@ -270,7 +270,8 @@
         created: function () {
             axios.get('/session')
                 .then(response => {
-                    this.myName = response.data['name'];
+                    this.myName = response.data['my_name'];
+                    this.villageName = response.data['village_name']
                 })
             socket.on('message', (data) => {
                 if ("phase" in data) { this.phase = data.phase }
