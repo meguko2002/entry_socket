@@ -1,10 +1,22 @@
-from flask import render_template, request, \
+from flask import Flask, render_template, request, \
     redirect, session, url_for, jsonify
-from flask_socketio import emit, join_room, leave_room
+from flask_login import LoginManager, UserMixin, current_user, login_user, \
+    logout_user
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_session import Session
 import random
-from testapp import app, socketio
-from testapp import db
-from testapp.models.player import Player
+
+# from testapp import app, socketio
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'top-secret!'
+app.config['SESSION_TYPE'] = 'filesystem'
+login = LoginManager(app)
+Session(app)
+socketio = SocketIO(app, manage_session=False)
+
+# from testapp import db
+# from testapp.models.player import Player
 
 # 起動の仕方は(venv)entry_socket 配下で python server.py とする。https://qiita.com/Bashi50/items/e3459ca2a4661ce5dac6
 
@@ -51,6 +63,17 @@ CASTS = [{'name': '人狼', 'team': 'black', 'color': 'black'},
          {'name': '狂信者', 'team': 'black', 'color': 'white'},
          {'name': '市民', 'team': 'white', 'color': 'white'},
          ]
+
+
+class User(UserMixin, object):
+    def __init__(self, id=None):
+        self.id = id
+
+
+@login.user_loader
+def load_user(id):
+    return User(id)
+
 
 class Game:
     def __init__(self, village_name):
@@ -221,8 +244,9 @@ class Game:
         else:
             id = len(self.players) + 1
         return id
-#
-#     ############################################################################
+
+    #############################################################################
+
     @property
     def broadcast_info(self, msg=None):
         return {'phase': self.phase,
@@ -292,8 +316,9 @@ def index():
 
 @app.route('/session')
 def session_access():
-    my_name = session.get('my_name')
-    village_name = session.get('village_name','朝活村')
+    my_name = current_user.id \
+        if current_user.is_authenticated else None
+    village_name = session.get('village_name', '朝活村')
     return jsonify({'my_name': my_name, 'village_name': village_name})
 
 
@@ -315,11 +340,11 @@ def favicon():
 @socketio.on('create village')
 def create_village(data):
     my_name = data.get('my_name')
-    session['my_name'] = my_name
-
-    # 同一の村の名前がすでにあるか調べる
+    login_user(User(my_name))
+    # session['my_name'] = my_name
     village_name = data.get('village_name')
-    assert village_name
+    session['village_name'] = village_name
+    # 同一の村の名前がすでにあるか調べる
     if village_name in [game.village_name for game in games]:
         emit('message', {'msg': 'その村はすでにあります'})
         return
@@ -328,7 +353,6 @@ def create_village(data):
         game.set_gm(request.sid, my_name)
         game.phase = '参戦受付中'
         games.append(game)  # アプリに新しい村追加
-        session['village_name'] = village_name
         join_room(village_name)
         game.emit_broadcast()
 
@@ -336,26 +360,19 @@ def create_village(data):
 @socketio.on('enter village')
 def enter_village(data):
     village_name = data.get('village_name')
-    assert village_name
+    session['village_name'] = village_name
     game = next((game for game in games if game.village_name == village_name), None)
     if game:
-        session['village_name'] = village_name
         join_room(village_name)
-        if data.get('my_name') in [p['name'] for p in game.players]:
-            pass
         game.emit_broadcast()
-
     else:
         emit('message', {'msg': '村がありません'})
 
 
 @socketio.on('join game')
 def join_game(my_name):
-    village_name = session.get('village_name')
-    game = on_game(village_name)
-    print(game.village_name)
-    assert my_name
-    session['my_name'] = my_name
+    login_user(User(my_name))
+    game = on_game(session['village_name'])
     game.join_game(request.sid, my_name)
     game.emit_broadcast()
 
@@ -365,7 +382,20 @@ def leave(name):
     village_name = session.get('village_name')
     game = on_game(village_name)
     game.leave(name)
+    logout_user()
     game.emit_broadcast()
+
+
+@socketio.on('logout')
+def logout(name):
+    village_name = session.get('village_name')
+    game = on_game(village_name)
+    if name != '':
+        game.leave(name)
+        game.emit_broadcast()
+    logout_user()
+    leave_room(village_name)
+    emit('message', {'phase':'村おこし'})
 
 
 # @app.route('/village', methods=['GET', 'POST'])
@@ -381,22 +411,7 @@ def leave(name):
 #         game = Game()
 #         return redirect(url_for('village'))
 #     return render_template('testapp/index.html')
-# @socketio.on('connect')
-# def connect():
-#     village_name = session.get('village_name')
-#     if village_name:
-#         game = on_game(village_name)
-#         my_name = session.get('my_name')
-#         if my_name:
-#             player = game.player_by_name(my_name)
-#             if player:
-#                 player['is_playing'] = True
-#                 player['sid'] = request.sid
-#                 join_room(game.village_name)
-#             if session['my_name'] == game.gm['name']:
-#                 game.gm['is_playing'] = True
-#                 game.gm['sid'] = request.sid
-#             game.emit_broadcast()
+
 
 
 # @socketio.on('disconnect')
@@ -503,7 +518,7 @@ def judge():
     message = game.win_judge()
     game.wolf_target.clear()
     emit('message', {'players': game.players_for_player, 'phase': game.phase,
-                     'msg': message, 'wolf_target': game.wolf_target}, broadcast=True)
+                     'msg': message, 'wolf_target': game.wolf_target}, to=game.village_name)
 
 
 @socketio.on('offer choices')
@@ -606,7 +621,7 @@ def action(object_name):
     game.judge_casts_action()  # 全てのcastのアクションから全体の判定
     game.phase = '朝'
     message = '夜のアクションが終了しました'
-    emit('message', {'phase': game.phase, 'msg': message}, broadcast=True)
+    emit('message', {'phase': game.phase, 'msg': message}, to=game.village_name)
 
 
 @socketio.on('next game')
@@ -618,7 +633,7 @@ def next_game():
     game.phase = '参戦受付中'
     message = '参戦受付中'
     game.emit_broadcast(message=message)
-    emit('message', {'opencast': ''}, broadcast=True)
+    emit('message', {'opencast': ''}, to=game.village_name)
 
 
 @socketio.on('change cast')
@@ -630,6 +645,5 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
-    socketio.run(app)
-    socketio.run(app, host='192.168.2.60', debug=True)
+    # socketio.run(app, debug=True)
+    socketio.run(app, host='192.168.2.36', debug=True)

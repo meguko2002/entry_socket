@@ -2,44 +2,66 @@
 
 {% block contents %}
 <div id="app">
-
     <template v-if="phase =='村おこし'">
-        <h1>人狼@zoom</h1>
+        <h1>ロビー</h1>
+
         <div>
-            <label for="villageName">村の名前</label>
-            <input type=" text" v-model="villageName" id="villageName" placeholder="村の名前">
+            <p>試合に参加するならこちらから</p>
+            <input type=" text" v-model="villageName" placeholder="村の名前">
+            <button @click="enterVillage">村に入る</button>
         </div>
+        <hr>
         <div>
-            <label for="myName">あなたの名前</label>
-            <input type=" text" v-model="myName" id="myName" placeholder="あなたの名前">
-        </div>
-        <div>
-            <button v-on:click="enterVillage">村に入る</button>
-        </div>
-        <div>
-            <button v-on:click="createVillage">村を立てる</button>
+            <p>新たに村をたてるならこちらから</p>
+            <input type=" text" v-model="villageName" placeholder="村の名前"><br>
+            <input type=" text" v-model="myName" placeholder="GMの名前">
+            <button @click="createVillage">村を立てる</button>
         </div>
         <p> [[ message ]]</p>
     </template>
 
-    <template v-else>
+    <template v-else-if="phase =='参戦受付中'">
         <p>[[ villageName ]] GM: [[ gmSign ]]</p>
         <h1>[[phase]]</h1>
         <table>
             <tr v-for="player in players" :key="player.pid">
-                <td v-bind:class={active:player.name==myName}>[[ player.pid ]]</td>
-                <td v-bind:class={active:!player.isAlive}>[[ player.name ]]
+                <td :class={active:player.name==myName}>[[ player.pid ]]</td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]</td>
+                <td>
+                    <button v-if="(player.name==myName || IamGM)" @click="leave(player)">観戦</button>
+                    <button v-if="(player.name==myName || IamGM)" @click="logout(player)">村を離れる</button>
+                    <button v-if="gmButtonEnable && player.name != gm.name" @click="submitGM(player.name)">GM</button>
+                </td>
+            </tr>
+            <tr v-if="notEntry">
+                <td></td>
+                <td> <input type="text" v-model="myName"></td>
+                <td>
+                    <button @click="joinGame"> 参戦 </button>
+                    <button @click="logout">村を離れる</button>
+                </td>
+            </tr>
+        </table>
+    </template>
+
+    <!-- <template v-else-if="phase =='参戦受付中'">
+        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <h1>[[phase]]</h1>
+        <table>
+            <tr v-for="player in players" :key="player.pid">
+                <td :class={active:player.name==myName}>[[ player.pid ]]</td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]
                     <span v-if="!player.is_playing">(断線中)</span>
                 </td>
                 <td>
-                    <button v-if="IamGM && phase=='昼'" v-on:click="vote(player)"
+                    <button v-if="IamGM && phase=='昼'" @click="vote(player)"
                         :disabled="voted || !player.isAlive">追放</button>
-                    <input v-if="phase=='深夜'" type="radio" name="targetCand" v-on:click="action(player)"
+                    <input v-if="phase=='深夜'" type="radio" name="targetCand" @click="action(player)"
                         :disabled="isNotObjected(player)" value="対象"></input>
+                    <button v-if="phase=='参戦受付中' && (player.name==myName || IamGM)" @click="leave(player)">観戦</button>
                     <button v-if="phase=='参戦受付中' && (player.name==myName || IamGM)"
-                        v-on:click="leave(player)">退却</button>
-                    <button v-if="gmButtonEnable && player.name != gm.name"
-                        v-on:click="submitGM(player.name)">GM</button>
+                        @click="logout(player)">村を離れる</button>
+                    <button v-if="gmButtonEnable && player.name != gm.name" @click="submitGM(player.name)">GM</button>
                 </td>
                 <td>[[ opencast[player.name] ]]</td>
                 <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
@@ -52,64 +74,65 @@
                     <input type="text" v-model="myName">
                 </td>
                 <td>
-                    <button v-on:click="joinGame"> 参戦 </button>
+                    <button @click="joinGame"> 参戦 </button>
                 </td>
             </tr>
             <tr v-else-if="IamGM && phase=='昼'">
                 <td></td>
                 <td></td>
                 <td>
-                    <button v-on:click="vote('')" :disabled="voted">追放なし</button>
+                    <button @click="vote('')" :disabled="voted">追放なし</button>
+                </td>
+            </tr>
+        </table>
+    </template> -->
+
+    <template v-if="IamGM">
+        <button v-if="phase=='参戦受付中'" @click=" assignCast" :disabled="players.length==0">試合開始</button>
+        <button v-if="phase=='昼'" @click=" judge" :disabled="!voted">結果判定</button>
+        <button v-if="phase=='夜'" @click=" toMidnight">夜のアクション</button>
+        <button v-if="phase=='朝'" @click=" judge">結果判定</button>
+        <button v-if=gameover @click="nextGame">次の試合</button>
+    </template>
+    <p> [[ message ]]</p>
+    <template>
+        <table>
+            <tr v-for="(num, name) in castMenu">
+                <td>
+                    <label :for="name">[[ name ]]</label>
+                </td>
+                <td>
+                    <input type="number" v-model.number="castMenu[name]" @click=countupdown
+                        :disabled="(name=='市民') || banCastControll" id="name" :min="minCastNum(name)" max="100">
                 </td>
             </tr>
         </table>
 
-        <template v-if="IamGM">
-            <button v-if="phase=='参戦受付中'" v-on:click=" assignCast" :disabled="players.length==0">試合開始</button>
-            <button v-if="phase=='昼'" v-on:click=" judge" :disabled="!voted">結果判定</button>
-            <button v-if="phase=='夜'" v-on:click=" toMidnight">夜のアクション</button>
-            <button v-if="phase=='朝'" v-on:click=" judge">結果判定</button>
-            <button v-if=gameover v-on:click="nextGame">次の試合</button>
-        </template>
-        <p> [[ message ]]</p>
-        <template>
-            <table>
-                <tr v-for="(num, name) in castMenu">
-                    <td>
-                        <label :for="name">[[ name ]]</label>
-                    </td>
-                    <td>
-                        <input type="number" v-model.number="castMenu[name]" v-on:click=countupdown
-                            :disabled="(name=='市民') || banCastControll" id="name" :min="minCastNum(name)" max="100">
-                    </td>
-                </tr>
-            </table>
+        <p>連続ガード
+            <select v-model="renguard" @change="emitRenguard">
+                <option v-for="tg in toggle" :value="tg.value" :disabled="banCastControll">[[
+                    tg.text ]]</option>
+            </select>
+        </p>
+        <p>ランダム白
+            <select v-model="ranshiro" @change="emitRanshiro">
+                <option v-for="tg in toggle" :value="tg.value" :disabled="banCastControll">[[
+                    tg.text ]]</option>
+            </select>
+        </p>
+        <p>役職欠け
+            <select v-model="castmiss" @change="emitCastMiss">
+                <option v-for="sw in toggle" :value="sw.value" :disabled="banCastControll">[[ sw.text ]]
+                </option>
+            </select>
+            <span v-show="castmiss">※必ず一体は人狼がいます</span>
+        </p>
+    </template>
 
-            <p>連続ガード
-                <select v-model="renguard" v-on:change="emitRenguard">
-                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
-                        tg.text ]]</option>
-                </select>
-            </p>
-            <p>ランダム白
-                <select v-model="ranshiro" v-on:change="emitRanshiro">
-                    <option v-for="tg in toggle" v-bind:value="tg.value" :disabled="banCastControll">[[
-                        tg.text ]]</option>
-                </select>
-            </p>
-            <p>役職欠け
-                <select v-model="castmiss" v-on:change="emitCastMiss">
-                    <option v-for="sw in toggle" v-bind:value="sw.value" :disabled="banCastControll">[[ sw.text ]]
-                    </option>
-                </select>
-                <span v-show="castmiss">※必ず一体は人狼がいます</span>
-            </p>
-        </template>
-
-        <template>
-            <button v-if="IamGM && phase=='参戦受付中'" v-on:click="gmChange=!gmChange">GM交代</button>
-            <button v-if="IamGM" v-on:click="resetGame">リセット</button>
-        </template>
+    <template>
+        <button v-if="IamGM && phase=='参戦受付中'" @click="gmChange=!gmChange">GM交代</button>
+        <button v-if="IamGM" @click="resetGame">リセット</button>
+    </template>
     </template>
 </div>
 
@@ -170,10 +193,16 @@
                 return this.players.find(p => p.name === this.myName)
             },
             myId: function () {
-                if (this.myData === undefined) {
-                    return 0
+                if (this.myData) {
+                    return this.myData.pid
                 }
-                return this.myData.pid
+                return 0
+            },
+            notEntry: function () {
+                if (this.myData === undefined) {
+                    return true
+                }
+                return false
             },
             banCastControll: function () {
                 if (this.IamGM) {
@@ -210,19 +239,20 @@
                 }
             },
             enterVillage: function () {
-                if (this.myName != '' && this.villageName != '') {
+                if (this.villageName != '') {
                     socket.emit('enter village',
                         { 'village_name': this.villageName, 'my_name': this.myName }
                     )
                 }
             },
             joinGame: function () {
-                if (this.myName != '') {
-                    socket.emit('join game', this.myName)
-                }
+                socket.emit('join game', this.myName)
             },
             leave: function (player) {
                 socket.emit('leave', player.name)
+            },
+            logout: function () {
+                socket.emit('logout',this.myName)
             },
             action: function (player) {
                 socket.emit('do action', player.name)
