@@ -2,9 +2,8 @@
 
 {% block contents %}
 <div id="app">
-    <template v-if="phase =='村おこし'">
-        <h1>ロビー</h1>
-
+    <h1>[[phase]]</h1>
+    <template v-if="phase =='ロビー'">
         <div>
             <p>試合に参加するならこちらから</p>
             <input type=" text" v-model="villageName" placeholder="村の名前">
@@ -22,7 +21,6 @@
 
     <template v-else-if="phase =='参戦受付中'">
         <p>[[ villageName ]] GM: [[ gmSign ]]</p>
-        <h1>[[phase]]</h1>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -42,59 +40,95 @@
                 </td>
             </tr>
         </table>
+        <template v-if="IamGM">
+            <button @click=" assignCast" :disabled="players.length==0">試合開始</button>
+            <button @click="gmChange=!gmChange">GM交代</button>
+        </template>
     </template>
 
-    <!-- <template v-else-if="phase =='参戦受付中'">
+    <template v-else-if="phase =='昼'">
         <p>[[ villageName ]] GM: [[ gmSign ]]</p>
-        <h1>[[phase]]</h1>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
-                <td :class={active:!player.isAlive}>[[ player.name ]]
-                    <span v-if="!player.is_playing">(断線中)</span>
-                </td>
-                <td>
-                    <button v-if="IamGM && phase=='昼'" @click="vote(player)"
-                        :disabled="voted || !player.isAlive">追放</button>
-                    <input v-if="phase=='深夜'" type="radio" name="targetCand" @click="action(player)"
-                        :disabled="isNotObjected(player)" value="対象"></input>
-                    <button v-if="phase=='参戦受付中' && (player.name==myName || IamGM)" @click="leave(player)">観戦</button>
-                    <button v-if="phase=='参戦受付中' && (player.name==myName || IamGM)"
-                        @click="logout(player)">村を離れる</button>
-                    <button v-if="gmButtonEnable && player.name != gm.name" @click="submitGM(player.name)">GM</button>
-                </td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]</td>
                 <td>[[ opencast[player.name] ]]</td>
-                <td v-if="phase =='深夜'||phase =='朝'">[[ wolfTarget[player.name] ]]
+                <td>
+                    <button v-if="IamGM" @click="vote(player)" :disabled="voted || !player.isAlive">追放</button>
+                    <!-- <button v-if="gmButtonEnable && player.name != gm.name" @click="submitGM(player.name)">GM</button> -->
                 </td>
             </tr>
-
-            <tr v-if="phase =='参戦受付中' && myId ==0">
-                <td></td>
-                <td>
-                    <input type="text" v-model="myName">
-                </td>
-                <td>
-                    <button @click="joinGame"> 参戦 </button>
-                </td>
-            </tr>
-            <tr v-else-if="IamGM && phase=='昼'">
+            <tr v-if="IamGM">
                 <td></td>
                 <td></td>
-                <td>
-                    <button @click="vote('')" :disabled="voted">追放なし</button>
-                </td>
+                <td></td>
+                <td><button @click="vote('')" :disabled="voted">追放なし</button></td>
             </tr>
         </table>
-    </template> -->
-
-    <template v-if="IamGM">
-        <button v-if="phase=='参戦受付中'" @click=" assignCast" :disabled="players.length==0">試合開始</button>
-        <button v-if="phase=='昼'" @click=" judge" :disabled="!voted">結果判定</button>
-        <button v-if="phase=='夜'" @click=" toMidnight">夜のアクション</button>
-        <button v-if="phase=='朝'" @click=" judge">結果判定</button>
-        <button v-if=gameover @click="nextGame">次の試合</button>
+        <button v-if="IamGM" @click=" judge" :disabled="!voted">結果判定</button>
     </template>
+
+    <template v-else-if="phase =='夜'">
+        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <table>
+            <tr v-for="player in players" :key="player.pid">
+                <td :class={active:player.name==myName}>[[ player.pid ]]</td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]</td>
+                <td>[[ opencast[player.name] ]]</td>
+                <td></td>
+            </tr>
+            <tr></tr>
+        </table>
+        <button v-if="IamGM" @click=" toMidnight">夜のアクション</button>
+    </template>
+
+    <template v-else-if="phase =='深夜'">
+        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <table>
+            <tr v-for="player in players" :key="player.pid">
+                <td :class={active:player.name==myName}>[[ player.pid ]]</td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]</td>
+                <td>[[ opencast[player.name] ]]</td>
+                <td>
+                    <input type="radio" name="targetCand" @click="action(player)" :disabled="isNotObjected(player)"
+                        value="対象"></input>
+                </td>
+                <td>[[ wolfTarget[player.name] ]]</td>
+            </tr>
+            <tr></tr>
+        </table>
+    </template>
+
+    <template v-else-if="phase =='朝'">
+        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <table>
+            <tr v-for="player in players" :key="player.pid">
+                <td :class={active:player.name==myName}>[[ player.pid ]]</td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]</td>
+                <td>[[ opencast[player.name] ]]</td>
+                <td></td>
+                <td >[[ wolfTarget[player.name] ]]</td>
+            </tr>
+            <tr></tr>
+        </table>
+        <button v-if="IamGM" @click=" judge">結果判定</button>
+    </template>
+
+    <template v-else>
+        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <table>
+            <tr v-for="player in players" :key="player.pid">
+                <td :class={active:player.name==myName}>[[ player.pid ]]</td>
+                <td :class={active:!player.isAlive}>[[ player.name ]]</td>
+                <td>[[ opencast[player.name] ]]</td>
+                <td></td>
+            </tr>
+        </table>
+        <button v-if="IamGM" @click="nextGame">次の試合</button>
+    </template>
+
     <p> [[ message ]]</p>
+    
     <template>
         <table>
             <tr v-for="(num, name) in castMenu">
@@ -130,7 +164,7 @@
     </template>
 
     <template>
-        <button v-if="IamGM && phase=='参戦受付中'" @click="gmChange=!gmChange">GM交代</button>
+
         <button v-if="IamGM" @click="resetGame">リセット</button>
     </template>
     </template>
@@ -150,7 +184,7 @@
         data: {
             players: [],
             opencast: {},
-            phase: "村おこし",  //["参戦受付中", "参戦者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
+            phase: "ロビー",  //["参戦受付中", "参戦者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
             myName: '',
             message: '',
             voted: false,
@@ -252,7 +286,7 @@
                 socket.emit('leave', player.name)
             },
             logout: function () {
-                socket.emit('logout',this.myName)
+                socket.emit('logout', this.myName)
             },
             action: function (player) {
                 socket.emit('do action', player.name)

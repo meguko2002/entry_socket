@@ -80,7 +80,7 @@ class Game:
         self.village_name = village_name
         self.players = []
         self.casts = CASTS
-        self.phase = '村おこし'
+        self.phase = 'ロビー'
         self.dead_players = []
         self.cast_menu = None
         self.ranshiro = None
@@ -395,7 +395,7 @@ def logout(name):
         game.emit_broadcast()
     logout_user()
     leave_room(village_name)
-    emit('message', {'phase':'村おこし'})
+    emit('message', {'phase':'ロビー'})
 
 
 # @app.route('/village', methods=['GET', 'POST'])
