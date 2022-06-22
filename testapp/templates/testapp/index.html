@@ -3,7 +3,7 @@
 {% block contents %}
 <div id="app">
     <h1>[[phase]]</h1>
-    <template v-if="phase =='ロビー'">
+    <template v-if="gm ===null">
         <div>
             <p>試合に参加するならこちらから</p>
             <input type=" text" v-model="villageName" placeholder="村の名前">
@@ -20,7 +20,7 @@
     </template>
 
     <template v-else-if="phase =='参戦受付中'">
-        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <p>[[ villageName ]] GM: [[ gm.name ]]</p>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -28,7 +28,7 @@
                 <td>
                     <button v-if="(player.name==myName || IamGM)" @click="leave(player)">観戦</button>
                     <button v-if="(player.name==myName || IamGM)" @click="logout(player)">村を離れる</button>
-                    <button v-if="gmButtonEnable && player.name != gm.name" @click="submitGM(player.name)">GM</button>
+                    <button v-if="gmButtonEnable " @click="submitGM(player.name)">GM</button>
                 </td>
             </tr>
             <tr v-if="notEntry">
@@ -48,7 +48,7 @@
     </template>
 
     <template v-else-if="phase =='昼'">
-        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <p>[[ villageName ]] GM: [[ gm.name ]]</p>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -56,7 +56,6 @@
                 <td>[[ opencast[player.name] ]]</td>
                 <td>
                     <button v-if="IamGM" @click="vote(player)" :disabled="voted || !player.isAlive">追放</button>
-                    <!-- <button v-if="gmButtonEnable && player.name != gm.name" @click="submitGM(player.name)">GM</button> -->
                 </td>
             </tr>
             <tr v-if="IamGM">
@@ -71,7 +70,7 @@
     </template>
 
     <template v-else-if="phase =='夜'">
-        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <p>[[ villageName ]] GM: [[ gm.name ]]</p>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -86,7 +85,7 @@
     </template>
 
     <template v-else-if="phase =='深夜'">
-        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <p>[[ villageName ]] GM: [[ gm.name ]]</p>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -112,7 +111,7 @@
     </template>
 
     <template v-else-if="phase =='朝'">
-        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <p>[[ villageName ]] GM: [[ gm.name ]]</p>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -129,7 +128,7 @@
     </template>
 
     <template v-else>
-        <p>[[ villageName ]] GM: [[ gmSign ]]</p>
+        <p>[[ villageName ]] GM: [[ gm.name ]]</p>
         <table>
             <tr v-for="player in players" :key="player.pid">
                 <td :class={active:player.name==myName}>[[ player.pid ]]</td>
@@ -210,7 +209,7 @@
                 { text: 'なし', value: false },
                 { text: 'あり', value: true },
             ],
-            gm: {},
+            gm: null,
             villageName: "朝活村",
             gmChange: false,
             wolfInputText: '',
@@ -219,24 +218,16 @@
         },
         computed: {
             gmButtonEnable: function () {
-                if (this.gmChange == false) { return false }
-                if (this.gm.name == null || !this.gm.is_playing) {
-                    return true
-                }
-                if (this.IamGM && this.phase == "参戦受付中") {
-                    return true
-                }
+                if (this.IamGM) {
+                    if (this.gmChange == false) { return false }        
+                }            
+
+                // if (this.gm.name == null) {
+                //     return true
+                // }
+
                 return false
 
-            },
-            gmSign: function () {
-                if (this.gm.name == null) {
-                    return '未定'
-                }
-                else if (!this.gm.is_playing) {
-                    return this.gm.name + '(断線中)'
-                }
-                return this.gm.name
             },
             myData: function () {
                 return this.players.find(p => p.name === this.myName)
@@ -248,10 +239,7 @@
                 return 0
             },
             notEntry: function () {
-                if (this.myData === undefined) {
-                    return true
-                }
-                return false
+                return this.myData === undefined
             },
             banCastControll: function () {
                 if (this.IamGM) {
@@ -260,10 +248,11 @@
                 return true
             },
             IamGM: function () {
-                if (this.myName == '') {
-                    return false
+                if(this.gm && this.myName != ''){
+                    return this.myName == this.gm.name
                 }
-                return this.myName == this.gm.name
+                return false
+                
             },
             gameover: function () {
                 return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)

@@ -292,7 +292,6 @@ name_list = []
 
 def on_game(village_name):
     assert village_name, '村オブジェクトがない！！'
-    # return [game if game.village_name == village_name else None for game in games][0]
     return next((game for game in games if game.village_name == village_name), None)
 
 
@@ -665,5 +664,5 @@ def change_cast(new_menu):
 
 
 if __name__ == '__main__':
-    # socketio.run(app, debug=True)
-    socketio.run(app, host='192.168.2.36', debug=True)
+    socketio.run(app, debug=True)
+    # socketio.run(app, host='192.168.2.36', debug=True)
