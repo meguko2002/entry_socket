@@ -44,6 +44,7 @@
             <button @click=" assignCast" :disabled="players.length==0">試合開始</button>
             <button @click="gmChange=!gmChange">GM交代</button>
         </template>
+        <p> [[ message ]]</p>
     </template>
 
     <template v-else-if="phase =='昼'">
@@ -65,6 +66,7 @@
                 <td><button @click="vote('')" :disabled="voted">追放なし</button></td>
             </tr>
         </table>
+        <p> [[ message ]]</p>
         <button v-if="IamGM" @click=" judge" :disabled="!voted">結果判定</button>
     </template>
 
@@ -79,6 +81,7 @@
             </tr>
             <tr></tr>
         </table>
+        <p> [[ message ]]</p>
         <button v-if="IamGM" @click=" toMidnight">夜のアクション</button>
     </template>
 
@@ -90,13 +93,22 @@
                 <td :class={active:!player.isAlive}>[[ player.name ]]</td>
                 <td>[[ opencast[player.name] ]]</td>
                 <td>
-                    <input type="radio" name="targetCand" @click="action(player)" :disabled="isNotObjected(player)"
+                    <input type="radio" name="targetCand" @click="action(player)" :disabled="isNotObject(player)"
                         value="対象"></input>
                 </td>
-                <td>[[ wolfTarget[player.name] ]]</td>
+                <td v-if="myCast=='人狼'">[[ wolfTarget[player.name] ]]</td>
             </tr>
             <tr></tr>
         </table>
+        <p> [[ message ]]</p>
+        <template v-if="myCast=='人狼'">
+            <ul style="list-style:none">
+                <li v-for="message in wolfMessages">[[ message ]]</li>
+            </ul>
+            <input type=" text" v-model="wolfInputText" v-on:keydown.enter="wolfTalk"></input>
+        </template>
+
+
     </template>
 
     <template v-else-if="phase =='朝'">
@@ -107,11 +119,13 @@
                 <td :class={active:!player.isAlive}>[[ player.name ]]</td>
                 <td>[[ opencast[player.name] ]]</td>
                 <td></td>
-                <td >[[ wolfTarget[player.name] ]]</td>
+                <td>[[ wolfTarget[player.name] ]]</td>
             </tr>
             <tr></tr>
         </table>
+        <p> [[ message ]]</p>
         <button v-if="IamGM" @click=" judge">結果判定</button>
+
     </template>
 
     <template v-else>
@@ -124,11 +138,10 @@
                 <td></td>
             </tr>
         </table>
+        <p> [[ message ]]</p>
         <button v-if="IamGM" @click="nextGame">次の試合</button>
     </template>
 
-    <p> [[ message ]]</p>
-    
     <template>
         <table>
             <tr v-for="(num, name) in castMenu">
@@ -164,9 +177,7 @@
     </template>
 
     <template>
-
         <button v-if="IamGM" @click="resetGame">リセット</button>
-    </template>
     </template>
 </div>
 
@@ -186,6 +197,7 @@
             opencast: {},
             phase: "ロビー",  //["参戦受付中", "参戦者登録", "昼", "夜", "深夜", "朝","人狼勝利", "市民勝利", "第三勝利"]
             myName: '',
+            myCast: '',
             message: '',
             voted: false,
             objects: [], // 各役職の投票対象となるplayer.name
@@ -200,7 +212,10 @@
             ],
             gm: {},
             villageName: "朝活村",
-            gmChange: false
+            gmChange: false,
+            wolfInputText: '',
+            wolfMessages: [],
+            nowAction:false
         },
         computed: {
             gmButtonEnable: function () {
@@ -253,9 +268,12 @@
             gameover: function () {
                 return ["人狼勝利", "市民勝利", "第三勝利"].includes(this.phase)
             },
-            isNotObjected: function () {
+            isNotObject: function () {
                 return function (player) {
-                    return !this.objects.includes(player.name)
+                    if(this.nowAction){
+                        return !this.objects.includes(player.name)
+                    }
+                    return true
                 }
             },
             minCastNum: function () {
@@ -330,6 +348,10 @@
             emitCastMiss: function () {
                 socket.emit('set castmiss', this.castmiss)
             },
+            wolfTalk: function () {
+                socket.emit('wolf talk', this.myName + ': ' + this.wolfInputText)
+                this.wolfInputText = ''
+            }
         },
         created: function () {
             axios.get('/session')
@@ -341,6 +363,7 @@
                 if ("phase" in data) { this.phase = data.phase }
                 if ("msg" in data) { this.message = data.msg }
                 if ("my_name" in data) { this.myName = data.my_name }
+                if ("my_cast" in data) { this.myCast = data.my_cast }
                 if ("players" in data) {
                     this.players = data.players.sort((a, b) => {
                         return a.pid - b.pid
@@ -365,6 +388,13 @@
                 }
                 if ("castmiss" in data) {
                     this.castmiss = data.castmiss
+                }
+                if ("now_action" in data) {
+                    this.nowAction = data.now_action
+                }
+                if ("wolf_message" in data) {
+                    console.log(data.wolf_message)
+                    this.wolfMessages.push(data.wolf_message)
                 }
             })
         },

@@ -317,7 +317,7 @@ def index():
 @app.route('/session')
 def session_access():
     my_name = current_user.id \
-        if current_user.is_authenticated else None
+        if current_user.is_authenticated else ''
     village_name = session.get('village_name', '朝活村')
     return jsonify({'my_name': my_name, 'village_name': village_name})
 
@@ -475,24 +475,24 @@ def assign_cast(cast_menu):
 
     # playerごとにキャストリストopencastを送る
     for player in game.players:
-        player['opencast'][player['name']] = player['cast']['name']
-        if player['cast']['name'] in ['人狼', '狂信者']:  # 送り先が人狼または狂信者だったら
-            for i, p in enumerate(game.players):
+        my_cast = player['cast']['name']
+        player['opencast'][player['name']] = my_cast
+        if my_cast in ['人狼', '狂信者']:  # 送り先が人狼または狂信者だったら
+            for p in game.players:
                 if p['cast']['name'] == '人狼':
                     player['opencast'][p['name']] = '人狼'
 
-        elif (player['cast']['name'] == '占い師') and game.ranshiro:
+        elif my_cast == '占い師' and game.ranshiro:
             ranshiro_players = random.sample(game.citizens, 2)
             ranshiro_player = ranshiro_players[0] if ranshiro_players[0] != player else ranshiro_players[1]
-            for i, p in enumerate(game.players):
+            for p in game.players:
                 if p == ranshiro_player:
                     player['opencast'][p['name']] = '人狼ではない'
-                    break
 
         player['message'] = player['name'] + 'は' + player['cast']['name']
         emit('message',
              {'players': game.players_for_player, 'phase': game.phase, 'msg': player['message'],
-              'opencast': player['opencast']},
+              'opencast': player['opencast'], 'my_cast': my_cast},
              to=player['sid'])
     game.emit_broadcast()
 
@@ -530,24 +530,24 @@ def offer_choices():
         player['objects'] = []
         if not player.get('isAlive'):
             player['message'] = '次のゲームまでお待ちください'
-            player['doing_action'] = False
+            player['now_action'] = False
 
         else:
             if player in game.wolves:
                 player['message'] = '誰を襲いますか'
-                player['doing_action'] = True
+                player['now_action'] = True
                 player['target'] = None
                 for p in game.players:
                     if p['isAlive'] and not (p in game.wolves):
                         player['objects'].append(p['name'])
             elif player['cast']['name'] in ['占い師']:
                 player['message'] = '誰を占いますか'
-                player['doing_action'] = True
+                player['now_action'] = True
                 for p in game.players:
                     if p['isAlive'] and not (p == player):
                         player['objects'].append(p['name'])
             elif player['cast']['name'] in ['騎士']:
-                player['doing_action'] = True
+                player['now_action'] = True
                 for p in game.players:
                     if p['isAlive'] and not (p == player):
                         # 連続ガードなしで前の晩守られていた場合は次の護衛候補対象外
@@ -562,12 +562,14 @@ def offer_choices():
                 else:
                     player['message'] = game.outcast['name'] + 'は人狼ではなかった。\n夜明けまでお待ちください'
                     player['opencast'][game.outcast['name']] = '人狼ではない'
-                player['doing_action'] = False
+                player['now_action'] = False
             else:
                 player['message'] = '夜明けまでお待ちください'
-                player['doing_action'] = False
+                player['now_action'] = False
         emit('message', {'msg': player['message'], 'phase': game.phase, 'objects': player['objects'],
-                         'opencast': player['opencast']}, to=player['sid'])
+                         'opencast': player['opencast'],
+                         'now_action': player['now_action']
+                         }, to=player['sid'])
 
 
 @socketio.on('do action')
@@ -576,7 +578,7 @@ def action(object_name):
     game = on_game(village_name)
     player = game.player_by_sid(request.sid)
     object = game.player_by_name(object_name)
-    if player['doing_action']:
+    if player['now_action']:
         if player in game.wolves:
             player['message'] = '誰を襲いますか'
             target_set(player, object)
@@ -589,12 +591,14 @@ def action(object_name):
                     object['is_targeted'] = True
                     player['message'] = '襲撃先は' + object['name']
                     for w in game.wolves:
-                        w['doing_action'] = False
+                        w['now_action'] = False
                         w['target'] = None
                     object['targetedby'] = None
-
             for wolf in game.wolves:
-                emit('message', {'msg': wolf['message'], 'wolf_target': game.wolf_target}, to=wolf['sid'])
+                emit('message', {'msg': wolf['message'],
+                                 'wolf_target': game.wolf_target,
+                                 'now_action':wolf['now_action']
+                                 }, to=wolf['sid'])
 
         elif player['cast']['name'] in ['占い師', ]:
             if object['cast']['name'] == '人狼':
@@ -603,25 +607,41 @@ def action(object_name):
                 comment = '人狼ではない'
             player['opencast'][object['name']] = comment
             player['message'] = object['name'] + 'は' + comment
-            player['doing_action'] = False
-            emit('message', {'msg': player['message'], 'opencast': player['opencast'], 'objects': []},
+            player['now_action'] = False
+            emit('message', {'msg': player['message'],
+                             'opencast': player['opencast'],
+                             'objects': [],
+                             'now_action': player['now_action']
+                             },
                  to=player['sid'])
 
         elif player['cast']['name'] in ['騎士']:
             object['is_protected'] = True
             player['last_protect'] = object
             player['message'] = object['name'] + 'を護衛します'
-            player['doing_action'] = False
-            emit('message', {'msg': player['message'], 'objects': []}, to=player['sid'])
+            player['now_action'] = False
+            emit('message', {'msg': player['message'],
+                             'objects': [],
+                             'now_action': player['now_action']},
+                 to=player['sid'])
 
     # 全員のactionが完了した後の処理
     for player in game.players:
-        if player['doing_action']:
+        if player['now_action']:
             return
     game.judge_casts_action()  # 全てのcastのアクションから全体の判定
     game.phase = '朝'
     message = '夜のアクションが終了しました'
     emit('message', {'phase': game.phase, 'msg': message}, to=game.village_name)
+
+
+@socketio.on('wolf talk')
+def wolf_talk(message):
+    village_name = session.get('village_name')
+    game = on_game(village_name)
+    print(message)
+    for wolf in game.wolves:
+        emit('message', {'wolf_message': message},to=wolf['sid'])
 
 
 @socketio.on('next game')
