@@ -339,6 +339,9 @@ def favicon():
 @socketio.on('create village')
 def create_village(data):
     my_name = data.get('my_name')
+    if not my_name or my_name=='':
+        emit('message', {'msg': '名前を入力してください'})
+        return
     login_user(User(my_name))
     # session['my_name'] = my_name
     village_name = data.get('village_name')
@@ -370,6 +373,9 @@ def enter_village(data):
 
 @socketio.on('join game')
 def join_game(my_name):
+    if not my_name or my_name=='':
+        emit('message', {'msg': '名前を入力してください'})
+        return
     login_user(User(my_name))
     game = on_game(session['village_name'])
     game.join_game(request.sid, my_name)

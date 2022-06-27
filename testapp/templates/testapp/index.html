@@ -221,13 +221,7 @@
                 if (this.IamGM) {
                     if (this.gmChange == false) { return false }        
                 }            
-
-                // if (this.gm.name == null) {
-                //     return true
-                // }
-
                 return false
-
             },
             myData: function () {
                 return this.players.find(p => p.name === this.myName)
